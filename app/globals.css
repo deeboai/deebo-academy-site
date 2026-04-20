@@ -194,6 +194,28 @@
     @apply absolute inset-0 h-full w-full object-cover;
   }
 
+  .testimonial-card {
+    @apply rounded-[1.75rem] border border-border/80 bg-card/90 p-6 shadow-[0_24px_70px_-30px_rgba(0,0,0,0.55)];
+  }
+
+  .testimonial-marquee-track {
+    display: flex;
+    width: max-content;
+    gap: 1.25rem;
+    padding: 0 1.5rem;
+    animation: testimonial-marquee 42s linear infinite;
+  }
+
+  @keyframes testimonial-marquee {
+    from {
+      transform: translateX(0);
+    }
+
+    to {
+      transform: translateX(calc(-50% - 0.625rem));
+    }
+  }
+
   .hide-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -246,6 +268,10 @@
     .animate-slide-in-left,
     .animate-slide-in-right,
     .animated-aurora {
+      animation: none;
+    }
+
+    .testimonial-marquee-track {
       animation: none;
     }
 

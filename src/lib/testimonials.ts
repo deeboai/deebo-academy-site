@@ -11,6 +11,7 @@ export type AcademyTestimonial = {
   impression: string | null;
   video_path: string | null;
   video_url: string | null;
+  moderation_status: string;
   is_published: boolean;
 };
 
@@ -19,7 +20,7 @@ export async function listAcademyTestimonials() {
   const { data, error } = await supabase
     .from("academy_testimonials")
     .select(
-      "id, created_at, first_name, last_name, class_year, tutor_name, subject, impression, video_path, video_url, is_published",
+      "id, created_at, first_name, last_name, class_year, tutor_name, subject, impression, video_path, video_url, moderation_status, is_published",
     )
     .eq("is_published", true)
     .order("created_at", { ascending: false });
