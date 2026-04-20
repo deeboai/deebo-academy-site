@@ -34,14 +34,12 @@ const academyTestimonialSchema = z
       .min(1, "Enter the subject.")
       .max(120, "Subjects must be 120 characters or fewer."),
     impression: z.string().trim().max(2000, "Written testimonials must be 2000 characters or fewer."),
-    videoPath: z.string().trim().max(500).optional().or(z.literal("")),
-    videoUrl: z.string().trim().url().max(1000).optional().or(z.literal("")),
   })
   .superRefine((value, ctx) => {
-    if (!value.impression && !value.videoPath) {
+    if (!value.impression) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Add a written testimonial, a video recording, or both.",
+        message: "Add a written testimonial before submitting.",
         path: ["impression"],
       });
     }
@@ -80,8 +78,6 @@ export async function submitTestimonial(
         tutorName: fieldErrors.tutorName?.[0],
         subject: fieldErrors.subject?.[0],
         impression: fieldErrors.impression?.[0],
-        videoPath: fieldErrors.videoPath?.[0],
-        videoUrl: fieldErrors.videoUrl?.[0],
       },
     };
   }
@@ -97,8 +93,8 @@ export async function submitTestimonial(
       impression: parsedValues.data.impression
         ? sanitizeMultilineText(parsedValues.data.impression, { maxLength: 2000 })
         : null,
-      video_path: parsedValues.data.videoPath || null,
-      video_url: parsedValues.data.videoUrl || null,
+      video_path: null,
+      video_url: null,
       moderation_status: "pending",
       is_published: false,
     });
