@@ -36,27 +36,41 @@ export function SiteHeader() {
 
           <nav
             aria-label="Academy sections"
-            className="hide-scrollbar -mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-1"
+            className="relative"
           >
-            {ACADEMY_SITE_LINKS.map((link) => {
-              const isActive =
-                pathname === link.href ||
-                (link.href !== "/" && pathname?.startsWith(link.href));
+            {/* The mobile cue makes it obvious that the page pills continue horizontally. */}
+            <div className="mb-2 flex items-center justify-between gap-3 sm:hidden">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground/85">
+                Swipe to see more
+              </p>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-primary/85">
+                More →
+              </span>
+            </div>
 
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={
-                    isActive
-                      ? "rounded-full border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-medium text-primary"
-                      : "rounded-full border border-transparent px-4 py-2 text-sm font-medium text-muted-foreground hover:border-border hover:text-foreground"
-                  }
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
+            <div className="nav-scroll-fade">
+              <div className="hide-scrollbar -mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-1 pr-10 sm:pr-1">
+                {ACADEMY_SITE_LINKS.map((link) => {
+                  const isActive =
+                    pathname === link.href ||
+                    (link.href !== "/" && pathname?.startsWith(link.href));
+
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className={
+                        isActive
+                          ? "shrink-0 rounded-full border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-medium text-primary"
+                          : "shrink-0 rounded-full border border-transparent px-4 py-2 text-sm font-medium text-muted-foreground hover:border-border hover:text-foreground"
+                      }
+                    >
+                      {link.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
           </nav>
         </div>
       </div>
