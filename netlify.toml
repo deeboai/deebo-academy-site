@@ -1,0 +1,11 @@
+[build]
+  # In the standalone repo, Netlify builds directly from the project root.
+  command = "npm run build"
+
+[build.environment]
+  NODE_VERSION = "22"
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY"
+
+[[plugins]]
+  # The Academy site is its own Next.js deployment and should use Netlify's Next runtime directly.
+  package = "@netlify/plugin-nextjs"
