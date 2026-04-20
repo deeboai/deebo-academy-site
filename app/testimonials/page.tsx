@@ -15,7 +15,7 @@ export default async function TestimonialsPage() {
     <>
       <PageHero
         title="Reviews from students and families who have worked with Deebo Academy"
-        description="Feedback from students and families who have worked with us."
+        description=""
         actions={
           <>
             <Link href="/book" className="primary-button">
@@ -35,9 +35,6 @@ export default async function TestimonialsPage() {
               <h2 className="text-3xl font-semibold tracking-tight text-foreground">
                 Recent testimonials
               </h2>
-              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                A selection of published reviews from students and families who have worked with us.
-              </p>
             </div>
 
             <div className="mt-8">
@@ -47,9 +44,6 @@ export default async function TestimonialsPage() {
                 <div className="px-6 sm:px-8">
                   <div className="rounded-3xl border border-dashed border-border/80 bg-background/50 px-6 py-14 text-center">
                     <h4 className="text-lg font-medium text-foreground">No published testimonials yet</h4>
-                    <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">
-                      Approved testimonials will appear here once they have been reviewed.
-                    </p>
                   </div>
                 </div>
               )}
@@ -66,8 +60,7 @@ export default async function TestimonialsPage() {
                 Submit a testimonial
               </h2>
               <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                Share a written review, a short video, or both. We review every submission before it
-                appears on the site.
+                Share a written review for Deebo Academy.
               </p>
             </div>
             <TestimonialForm />
