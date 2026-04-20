@@ -99,7 +99,8 @@ export async function submitTestimonial(
         : null,
       video_path: parsedValues.data.videoPath || null,
       video_url: parsedValues.data.videoUrl || null,
-      is_published: true,
+      moderation_status: "pending",
+      is_published: false,
     });
 
     if (error) {
@@ -110,7 +111,7 @@ export async function submitTestimonial(
 
     return {
       status: "success",
-      message: "Thanks. Your testimonial is now live on the testimonials page.",
+      message: "Thanks. Your testimonial has been received and will be reviewed before it appears online, usually within 24 hours.",
     };
   } catch (error) {
     return {

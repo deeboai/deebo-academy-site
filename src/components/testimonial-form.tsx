@@ -128,8 +128,8 @@ export function TestimonialForm() {
       <div className="border-b border-border/80 pb-6">
         <h2 className="text-2xl font-semibold text-foreground">Leave a Review</h2>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          Share a written testimonial, a short video recording, or both. New reviews appear on the
-          testimonials page with the date they were submitted.
+          Share a written testimonial, a short video recording, or both. We review each submission
+          before it appears on the site.
         </p>
       </div>
 
@@ -235,8 +235,7 @@ export function TestimonialForm() {
             }}
           />
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Optional. Short MP4, WebM, or QuickTime uploads work best. Reviews publish immediately
-            after submission.
+            Optional. Short MP4, WebM, or QuickTime uploads work best.
           </p>
           {videoFile ? (
             <p className="mt-2 text-sm text-muted-foreground">
@@ -245,6 +244,11 @@ export function TestimonialForm() {
           ) : null}
           {uploadError ? <p className="mt-2 text-sm text-destructive">{uploadError}</p> : null}
         </div>
+
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Submitted testimonials are reviewed before publication and typically appear within 24
+          hours.
+        </p>
 
         <button type="submit" className="primary-button w-full" disabled={isPending}>
           {isPending ? "Submitting review..." : "Submit review"}
