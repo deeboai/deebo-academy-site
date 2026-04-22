@@ -1,14 +1,21 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 import { PageHero } from "@/components/page-hero";
 import { Reveal } from "@/components/reveal";
 import { TestimonialForm } from "@/components/testimonial-form";
 import { TestimonialsCarousel } from "@/components/testimonials-carousel";
+import { ACADEMY_TESTIMONIALS_ENABLED } from "@/content/academy-content";
 import { listAcademyTestimonials } from "@/lib/testimonials";
 
 export const dynamic = "force-dynamic";
 
 export default async function TestimonialsPage() {
+  // Return a 404 while this page stays offline so the implementation can remain in place.
+  if (!ACADEMY_TESTIMONIALS_ENABLED) {
+    notFound();
+  }
+
   const testimonials = await listAcademyTestimonials();
 
   return (
