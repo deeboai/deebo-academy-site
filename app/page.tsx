@@ -7,6 +7,7 @@ import {
   ACADEMY_COLLEGE_REQUESTS,
   ACADEMY_FAMILY_FLOW,
   ACADEMY_SUBJECTS,
+  ACADEMY_TESTIMONIALS_ENABLED,
 } from "@/content/academy-content";
 import { SectionHeading } from "@/components/section-heading";
 
@@ -206,16 +207,21 @@ export default function HomePage() {
               Start with intake and we&apos;ll review the course from there.
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
-              If you want to see feedback first, the testimonials page is available. Otherwise,
-              start with intake and we&apos;ll review the course from there.
+              We start with intake, review the course details, and recommend the right support
+              plan from there.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Link href="/book" className="primary-button">
                 Start Intake
               </Link>
-              <Link href="/testimonials" className="text-sm font-medium text-foreground/85 hover:text-primary">
-                Read testimonials
-              </Link>
+              {ACADEMY_TESTIMONIALS_ENABLED ? (
+                <Link
+                  href="/testimonials"
+                  className="text-sm font-medium text-foreground/85 hover:text-primary"
+                >
+                  Read testimonials
+                </Link>
+              ) : null}
             </div>
           </Reveal>
         </div>

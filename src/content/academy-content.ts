@@ -1,11 +1,16 @@
 export const ACADEMY_UPDATED_AT = "April 20, 2026";
 
+// Keep this flag false while the testimonials page stays out of public view.
+export const ACADEMY_TESTIMONIALS_ENABLED = false;
+
 export const ACADEMY_SITE_LINKS = [
   { href: "/", label: "Overview" },
   { href: "/subjects", label: "Subjects" },
   { href: "/pricing", label: "Pricing" },
   { href: "/faq", label: "FAQ" },
-  { href: "/testimonials", label: "Testimonials" },
+  ...(ACADEMY_TESTIMONIALS_ENABLED
+    ? ([{ href: "/testimonials", label: "Testimonials" }] as const)
+    : []),
   { href: "/book", label: "Book" },
 ] as const;
 
