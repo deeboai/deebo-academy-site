@@ -37,16 +37,26 @@ type AcademyIntakeInsert = {
   student_first_name: string;
   grade: string;
   subject: string;
+  course_name: string;
+  school_name: string | null;
   goals: string;
+  upcoming_deadline: string;
   session_format: string;
+  requested_location: string | null;
+  preferred_availability: string;
+  referral_source: string | null;
   status: "new";
+  placement_required: false;
+  admin_notes: null;
+  reviewed_at: null;
+  reviewed_by: null;
   accepted_client_agreement: boolean;
   accepted_terms: boolean;
   accepted_privacy: boolean;
 };
 
-function sanitizeOptionalPhoneNumber(value: string | undefined) {
-  const sanitizedValue = sanitizePlainText(value ?? "", { maxLength: 30 });
+function sanitizeOptionalText(value: string | undefined, maxLength: number) {
+  const sanitizedValue = sanitizePlainText(value ?? "", { maxLength });
 
   return sanitizedValue || null;
 }
@@ -71,8 +81,14 @@ export async function submitAcademyIntake(
         studentFirstName: fieldErrors.studentFirstName?.[0],
         grade: fieldErrors.grade?.[0],
         subject: fieldErrors.subject?.[0],
-        goals: fieldErrors.goals?.[0],
+        courseName: fieldErrors.courseName?.[0],
+        schoolName: fieldErrors.schoolName?.[0],
+        currentChallenge: fieldErrors.currentChallenge?.[0],
+        upcomingDeadline: fieldErrors.upcomingDeadline?.[0],
         format: fieldErrors.format?.[0],
+        requestedLocation: fieldErrors.requestedLocation?.[0],
+        preferredAvailability: fieldErrors.preferredAvailability?.[0],
+        referralSource: fieldErrors.referralSource?.[0],
         acceptClientAgreement: fieldErrors.acceptClientAgreement?.[0],
         acceptTerms: fieldErrors.acceptTerms?.[0],
         acceptPrivacy: fieldErrors.acceptPrivacy?.[0],
@@ -87,15 +103,27 @@ export async function submitAcademyIntake(
       maxLength: 120,
     }),
     parent_email: sanitizeEmailAddress(parsedValues.data.parentEmail),
-    parent_phone: sanitizeOptionalPhoneNumber(parsedValues.data.parentPhone),
+    parent_phone: sanitizeOptionalText(parsedValues.data.parentPhone, 30),
     student_first_name: sanitizePlainText(parsedValues.data.studentFirstName, {
       maxLength: 60,
     }),
-    grade: sanitizePlainText(parsedValues.data.grade, { maxLength: 40 }),
+    grade: sanitizePlainText(parsedValues.data.grade, { maxLength: 60 }),
     subject: sanitizePlainText(parsedValues.data.subject, { maxLength: 80 }),
-    goals: sanitizeMultilineText(parsedValues.data.goals, { maxLength: 1500 }),
+    course_name: sanitizePlainText(parsedValues.data.courseName, { maxLength: 120 }),
+    school_name: sanitizeOptionalText(parsedValues.data.schoolName, 120),
+    goals: sanitizeMultilineText(parsedValues.data.currentChallenge, { maxLength: 1500 }),
+    upcoming_deadline: sanitizePlainText(parsedValues.data.upcomingDeadline, { maxLength: 160 }),
     session_format: sanitizePlainText(parsedValues.data.format, { maxLength: 40 }),
+    requested_location: sanitizeOptionalText(parsedValues.data.requestedLocation, 160),
+    preferred_availability: sanitizeMultilineText(parsedValues.data.preferredAvailability, {
+      maxLength: 300,
+    }),
+    referral_source: sanitizeOptionalText(parsedValues.data.referralSource, 120),
     status: "new",
+    placement_required: false,
+    admin_notes: null,
+    reviewed_at: null,
+    reviewed_by: null,
     accepted_client_agreement: true,
     accepted_terms: true,
     accepted_privacy: true,
@@ -124,11 +152,18 @@ export async function submitAcademyIntake(
         referenceId: submissionId,
         parentFullName: submissionRow.parent_full_name,
         parentEmail: submissionRow.parent_email,
+        parentPhone: submissionRow.parent_phone,
         studentFirstName: submissionRow.student_first_name,
         grade: submissionRow.grade,
         subjectLabel,
+        courseName: submissionRow.course_name,
+        schoolName: submissionRow.school_name,
         formatLabel,
-        goals: submissionRow.goals,
+        currentChallenge: submissionRow.goals,
+        upcomingDeadline: submissionRow.upcoming_deadline,
+        preferredAvailability: submissionRow.preferred_availability,
+        requestedLocation: submissionRow.requested_location,
+        referralSource: submissionRow.referral_source,
       });
       emailSent = emailResult.sent;
     } catch (emailError) {

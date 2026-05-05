@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 
 import "./globals.css";
 
-import { SiteFooter } from "@/components/site-footer";
-import { SiteHeader } from "@/components/site-header";
-import { ScrollToTop } from "@/components/scroll-to-top";
+import { SiteChrome } from "@/components/site-chrome";
+import { ThemeScript } from "@/components/theme/theme-script";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://academy.deeboai.com"),
@@ -53,15 +52,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
-        {/* The standalone Academy site uses its own shell so it behaves like a separate property from deeboai.com. */}
-        <div className="min-h-screen">
-          <ScrollToTop />
-          <SiteHeader />
-          <main>{children}</main>
-          <SiteFooter />
-        </div>
+        <ThemeScript />
+        <SiteChrome>{children}</SiteChrome>
       </body>
     </html>
   );

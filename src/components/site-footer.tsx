@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { ACADEMY_SITE_LINKS, ACADEMY_SUPPORT_EMAIL } from "@/content/academy-content";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 export function SiteFooter() {
   return (
@@ -21,21 +22,27 @@ export function SiteFooter() {
             </a>
           </div>
 
-          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-            {ACADEMY_SITE_LINKS.map((link) => (
-              <Link key={link.href} href={link.href} className="hover:text-primary">
-                {link.label}
+          <div className="flex flex-col items-start gap-4 md:items-end">
+            <ThemeToggle />
+            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+              {ACADEMY_SITE_LINKS.map((link) => (
+                <Link key={link.href} href={link.href} className="hover:text-primary">
+                  {link.label}
+                </Link>
+              ))}
+              <Link href="/login" className="font-medium text-foreground hover:text-primary">
+                Portal Login
               </Link>
-            ))}
-            <Link href="/client-agreement" className="hover:text-primary">
-              Client Agreement
-            </Link>
-            <Link href="/terms" className="hover:text-primary">
-              Terms
-            </Link>
-            <Link href="/privacy" className="hover:text-primary">
-              Privacy
-            </Link>
+              <Link href="/client-agreement" className="hover:text-primary">
+                Client Agreement
+              </Link>
+              <Link href="/terms" className="hover:text-primary">
+                Terms
+              </Link>
+              <Link href="/privacy" className="hover:text-primary">
+                Privacy
+              </Link>
+            </div>
           </div>
         </div>
       </div>

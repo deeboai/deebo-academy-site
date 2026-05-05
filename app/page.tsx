@@ -50,7 +50,7 @@ export default function HomePage() {
           >
             <source src="/homepage_video.mp4" type="video/mp4" />
           </video>
-          <div className="absolute inset-0 bg-black/62" />
+          <div className="hero-scrim absolute inset-0" />
           <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/80 to-background" />
         </div>
 
