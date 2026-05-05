@@ -12,6 +12,7 @@ import {
   submitAcademyIntake,
 } from "@/actions/submit-academy-intake";
 import type { AcademyIntakeFormValues } from "@/lib/academy-schema";
+import { hasPublicSupabaseEnv } from "@/lib/env";
 
 const defaultValues: AcademyIntakeFormValues = {
   parentFullName: "",
@@ -20,8 +21,14 @@ const defaultValues: AcademyIntakeFormValues = {
   studentFirstName: "",
   grade: "",
   subject: "",
-  goals: "",
+  courseName: "",
+  schoolName: "",
+  currentChallenge: "",
+  upcomingDeadline: "",
   format: "online",
+  requestedLocation: "",
+  preferredAvailability: "",
+  referralSource: "",
   acceptClientAgreement: false,
   acceptTerms: false,
   acceptPrivacy: false,
@@ -47,6 +54,15 @@ export function BookForm() {
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    if (!hasPublicSupabaseEnv) {
+      setResult({
+        status: "error",
+        message:
+          "The intake form is not connected yet. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local, then refresh the page.",
+      });
+      return;
+    }
+
     startTransition(async () => {
       const nextResult = await submitAcademyIntake(formValues);
       setResult(nextResult);
@@ -62,8 +78,8 @@ export function BookForm() {
       <div className="border-b border-border/80 pb-6">
         <h2 className="text-2xl font-semibold text-foreground">Intake</h2>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          Share the course, class level, and current challenges so we can review fit, confirm the
-          required terms, and follow up with scheduling guidance.
+          Share the exact course, the current challenge, and the scheduling details so we can
+          review fit, confirm the required terms, and follow up with the right next step.
         </p>
       </div>
 
@@ -80,6 +96,18 @@ export function BookForm() {
       {result?.status === "error" ? (
         <div className="mt-6 rounded-2xl border border-destructive/40 bg-destructive/10 px-5 py-4 text-sm text-destructive-foreground">
           <p className="font-medium text-foreground">{result.message}</p>
+        </div>
+      ) : null}
+
+      {!hasPublicSupabaseEnv ? (
+        <div className="mt-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-5 py-4 text-sm text-foreground">
+          <p className="font-medium">Local setup still needed.</p>
+          <p className="mt-2 text-muted-foreground">
+            Add <span className="font-mono text-foreground">NEXT_PUBLIC_SUPABASE_URL</span> and{" "}
+            <span className="font-mono text-foreground">NEXT_PUBLIC_SUPABASE_ANON_KEY</span> to{" "}
+            <span className="font-mono text-foreground">.env.local</span>, then restart the dev
+            server.
+          </p>
         </div>
       ) : null}
 
@@ -142,7 +170,7 @@ export function BookForm() {
           </div>
 
           <div>
-            <label className="field-label">Grade</label>
+            <label className="field-label">Student grade / school level</label>
             <input
               className="field-input"
               value={formValues.grade}
@@ -172,45 +200,132 @@ export function BookForm() {
               <p className="mt-2 text-sm text-destructive">{fieldErrors.subject}</p>
             ) : null}
           </div>
+
+          <div>
+            <label className="field-label">Specific course name</label>
+            <input
+              className="field-input"
+              value={formValues.courseName}
+              onChange={(event) => updateValue("courseName", event.target.value)}
+              placeholder="Algebra II, AP Calculus AB, General Chemistry I, French II, etc."
+            />
+            {fieldErrors.courseName ? (
+              <p className="mt-2 text-sm text-destructive">{fieldErrors.courseName}</p>
+            ) : null}
+          </div>
+
+          <div>
+            <label className="field-label">School name</label>
+            <input
+              className="field-input"
+              value={formValues.schoolName}
+              onChange={(event) => updateValue("schoolName", event.target.value)}
+              placeholder="Optional"
+            />
+            {fieldErrors.schoolName ? (
+              <p className="mt-2 text-sm text-destructive">{fieldErrors.schoolName}</p>
+            ) : null}
+          </div>
+
+          <div>
+            <label className="field-label">Upcoming exam or deadline</label>
+            <input
+              className="field-input"
+              value={formValues.upcomingDeadline}
+              onChange={(event) => updateValue("upcomingDeadline", event.target.value)}
+              placeholder="Quiz on May 10, unit test next week, final exam in June, or none right now"
+            />
+            {fieldErrors.upcomingDeadline ? (
+              <p className="mt-2 text-sm text-destructive">{fieldErrors.upcomingDeadline}</p>
+            ) : null}
+          </div>
         </div>
 
         <div>
-          <label className="field-label">Goals or current challenges</label>
+          <label className="field-label">Current challenge</label>
           <textarea
             rows={6}
             className="field-input"
-            value={formValues.goals}
-            onChange={(event) => updateValue("goals", event.target.value)}
-            placeholder="Share the topic, class, or academic challenge the student needs help with."
+            value={formValues.currentChallenge}
+            onChange={(event) => updateValue("currentChallenge", event.target.value)}
+            placeholder="Share the exact topic, pacing problem, exam concern, or coursework issue the student needs help with right now."
           />
           <p className="mt-2 text-sm text-muted-foreground">
-            Keep this focused on the class, pacing, upcoming assignments or exams, and the kind of
-            support the student needs.
+            Keep this focused on the actual class, the topic that is slowing progress down, and
+            what kind of support needs to happen next.
           </p>
-          {fieldErrors.goals ? (
-            <p className="mt-2 text-sm text-destructive">{fieldErrors.goals}</p>
+          {fieldErrors.currentChallenge ? (
+            <p className="mt-2 text-sm text-destructive">{fieldErrors.currentChallenge}</p>
           ) : null}
         </div>
 
+        <div className="grid gap-6 md:grid-cols-2">
+          <div>
+            <label className="field-label">Format</label>
+            <select
+              className="field-input"
+              value={formValues.format}
+              onChange={(event) =>
+                updateValue("format", event.target.value as AcademyIntakeFormValues["format"])
+              }
+            >
+              {ACADEMY_FORMAT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Online is the default. In-person requests are reviewed based on location, scheduling,
+              and instructional fit.
+            </p>
+            {fieldErrors.format ? (
+              <p className="mt-2 text-sm text-destructive">{fieldErrors.format}</p>
+            ) : null}
+          </div>
+
+          <div>
+            <label className="field-label">Best availability</label>
+            <textarea
+              rows={4}
+              className="field-input"
+              value={formValues.preferredAvailability}
+              onChange={(event) => updateValue("preferredAvailability", event.target.value)}
+              placeholder="Weeknights after 6 PM, Saturdays in the morning, flexible after school, etc."
+            />
+            {fieldErrors.preferredAvailability ? (
+              <p className="mt-2 text-sm text-destructive">
+                {fieldErrors.preferredAvailability}
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        {formValues.format === "in-person" ? (
+          <div>
+            <label className="field-label">Requested location for in-person tutoring</label>
+            <input
+              className="field-input"
+              value={formValues.requestedLocation}
+              onChange={(event) => updateValue("requestedLocation", event.target.value)}
+              placeholder="Neighborhood, school area, or city"
+            />
+            {fieldErrors.requestedLocation ? (
+              <p className="mt-2 text-sm text-destructive">{fieldErrors.requestedLocation}</p>
+            ) : null}
+          </div>
+        ) : null}
+
         <div>
-          <label className="field-label">Format</label>
-          <select
+          <label className="field-label">How did you hear about Deebo Academy?</label>
+          <input
             className="field-input"
-            value={formValues.format}
-            onChange={(event) => updateValue("format", event.target.value as AcademyIntakeFormValues["format"])}
-          >
-            {ACADEMY_FORMAT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Online is the primary format. In-person requests are reviewed based on scheduling,
-            location, and fit.
-          </p>
-          {fieldErrors.format ? (
-            <p className="mt-2 text-sm text-destructive">{fieldErrors.format}</p>
+            value={formValues.referralSource}
+            onChange={(event) => updateValue("referralSource", event.target.value)}
+            placeholder="Optional"
+          />
+          {fieldErrors.referralSource ? (
+            <p className="mt-2 text-sm text-destructive">{fieldErrors.referralSource}</p>
           ) : null}
         </div>
 
@@ -282,7 +397,11 @@ export function BookForm() {
           </div>
         </div>
 
-        <button type="submit" className="primary-button w-full" disabled={isPending}>
+        <button
+          type="submit"
+          className="primary-button w-full"
+          disabled={isPending || !hasPublicSupabaseEnv}
+        >
           {isPending ? "Submitting intake..." : "Submit intake"}
         </button>
       </form>

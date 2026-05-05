@@ -22,6 +22,39 @@
     --border: 220 12% 22%;
     --gradient-primary: linear-gradient(135deg, hsl(208 92% 62%), hsl(200 80% 54%));
     --shadow-glow: 0 20px 60px -10px hsla(217, 91%, 60%, 0.3);
+    --background-end: 220 15% 9%;
+    --panel-shadow: 0 24px 70px -30px rgba(0, 0, 0, 0.55);
+    --elevated-shadow: 0 30px 90px -40px rgba(0, 0, 0, 0.45);
+    --media-copy-background: rgba(0, 0, 0, 0.7);
+    --media-copy-border: rgba(255, 255, 255, 0.1);
+    --hero-scrim: rgba(0, 0, 0, 0.62);
+    color-scheme: dark;
+  }
+
+  :root[data-theme="light"] {
+    --background: 210 40% 98%;
+    --foreground: 222 36% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 36% 14%;
+    --primary: 208 88% 44%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 32% 94%;
+    --secondary-foreground: 222 36% 18%;
+    --muted: 210 28% 92%;
+    --muted-foreground: 220 14% 34%;
+    --accent: 208 40% 90%;
+    --accent-foreground: 222 36% 18%;
+    --destructive: 356 72% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 24% 82%;
+    --shadow-glow: 0 18px 48px -14px hsla(208, 92%, 44%, 0.18);
+    --background-end: 210 46% 95%;
+    --panel-shadow: 0 22px 60px -28px rgba(15, 23, 42, 0.14);
+    --elevated-shadow: 0 26px 80px -34px rgba(15, 23, 42, 0.18);
+    --media-copy-background: rgba(255, 255, 255, 0.86);
+    --media-copy-border: rgba(15, 23, 42, 0.08);
+    --hero-scrim: rgba(255, 255, 255, 0.38);
+    color-scheme: light;
   }
 
   * {
@@ -39,11 +72,16 @@
     font-optical-sizing: auto;
     background-image:
       radial-gradient(circle at top left, hsla(208, 92%, 62%, 0.14), transparent 22rem),
-      linear-gradient(180deg, hsl(var(--background)), hsl(220 15% 9%));
+      linear-gradient(180deg, hsl(var(--background)), hsl(var(--background-end)));
   }
 
   a {
     @apply transition-colors;
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 3px;
   }
 }
 
@@ -54,7 +92,41 @@
   }
 
   .site-panel {
-    @apply rounded-[1.75rem] border border-border/80 bg-card/90 shadow-[0_24px_70px_-30px_rgba(0,0,0,0.55)];
+    @apply rounded-[1.75rem] border border-border/80 bg-card/90;
+    box-shadow: var(--panel-shadow);
+  }
+
+  .workspace-shell {
+    @apply mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8;
+  }
+
+  .workspace-frame {
+    @apply rounded-[2rem] border border-border/80 bg-card/90;
+    box-shadow: var(--panel-shadow);
+  }
+
+  .workspace-eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.32em] text-primary/80;
+  }
+
+  .workspace-nav-link {
+    @apply inline-flex items-center rounded-full border border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-border/80 hover:bg-background/70 hover:text-foreground;
+  }
+
+  .workspace-nav-link-active {
+    @apply border-primary/25 bg-primary/10 text-foreground;
+  }
+
+  .workspace-stat {
+    @apply rounded-[1.35rem] border border-border/70 bg-background/55 px-4 py-4;
+  }
+
+  .record-row {
+    @apply rounded-[1.5rem] border border-border/70 bg-background/55 p-5;
+  }
+
+  .record-meta-label {
+    @apply text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground;
   }
 
   .site-kicker {
@@ -74,7 +146,7 @@
   }
 
   .field-input {
-    @apply w-full rounded-2xl border border-border bg-background/80 px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary;
+    @apply w-full rounded-2xl border border-border bg-background/80 px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20;
   }
 
   /* Reuse the main-site motion utilities so Academy keeps the same feel on entry and hover. */
@@ -186,12 +258,22 @@
 
   /* Stronger overlay treatment keeps copy readable over photography. */
   .media-copy-shell {
-    @apply rounded-[1.25rem] border border-white/10 bg-black/70 p-4 backdrop-blur-md;
+    @apply rounded-[1.25rem] p-4 backdrop-blur-md;
+    border: 1px solid var(--media-copy-border);
+    background: var(--media-copy-background);
     text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45);
   }
 
   .hero-video-shell {
     @apply absolute inset-0 h-full w-full object-cover;
+  }
+
+  .hero-scrim {
+    background: var(--hero-scrim);
+  }
+
+  .elevated-panel {
+    box-shadow: var(--elevated-shadow);
   }
 
   .nav-scroll-fade {
@@ -220,7 +302,8 @@
   }
 
   .testimonial-card {
-    @apply rounded-[1.75rem] border border-border/80 bg-card/90 p-6 shadow-[0_24px_70px_-30px_rgba(0,0,0,0.55)];
+    @apply rounded-[1.75rem] border border-border/80 bg-card/90 p-6;
+    box-shadow: var(--panel-shadow);
   }
 
   .testimonial-marquee-track {

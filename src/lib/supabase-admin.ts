@@ -1,15 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
-
-import { assertPublicSupabaseEnv, assertServiceRoleKey, env } from "@/lib/env";
+import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 export function getSupabaseAdminClient() {
-  assertPublicSupabaseEnv();
-  assertServiceRoleKey();
-
-  return createClient(env.publicSupabaseUrl, env.serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
+  // Keep the original helper name in place while the repo migrates to the shared service client path.
+  return getSupabaseServiceClient();
 }

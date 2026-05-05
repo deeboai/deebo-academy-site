@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { ACADEMY_SITE_LINKS } from "@/content/academy-content";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 export function SiteHeader() {
   const pathname = usePathname();
@@ -28,6 +29,10 @@ export function SiteHeader() {
               >
                 Back to DeeboAI
               </a>
+              <Link href="/login" className="secondary-button hidden px-4 py-2 lg:inline-flex">
+                Portal Login
+              </Link>
+              <ThemeToggle />
               <Link href="/book" className="primary-button px-4 sm:px-6">
                 Start Intake
               </Link>
