@@ -41,7 +41,7 @@ npm run dev
 The shared `/login` page uses Supabase Auth sessions and routes the user to the correct Academy workspace after sign-in.
 
 - Create the admin user accounts in Supabase Auth.
-- Set `ACADEMY_ADMIN_EMAILS` to a comma-separated allowlist such as `amadou@deeboai.com,academy@deeboai.com`.
+- Set `ACADEMY_ADMIN_EMAILS` to a comma-separated allowlist such as `admin1@example.com,admin2@example.com`.
 - Create parent, tutor, and student Auth users in Supabase with the same emails stored in the Academy tables.
 - Parent portal access matches `academy_parents.email`.
 - Tutor portal access matches `academy_tutors.email`.
