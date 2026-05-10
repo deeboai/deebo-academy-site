@@ -14,12 +14,8 @@ import {
 } from "@/lib/academy-intake";
 import { requireAcademyAdminUser } from "@/lib/auth/academy-admin";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import {
-  assignAcademyPlacementAttemptAction,
-  convertAcademyIntakeToRecordsAction,
-} from "@/actions/academy-os-admin";
+import { convertAcademyIntakeToRecordsAction } from "@/actions/academy-os-admin";
 import { updateAcademyIntakeNotesAction, updateAcademyIntakeStatusAction } from "../actions";
-import { listAcademyParents, listAcademyPlacementExams } from "@/lib/academy-data";
 
 const intakeDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "long",
@@ -54,7 +50,6 @@ type AcademyIntakeSubmission = {
   preferred_availability: string | null;
   referral_source: string | null;
   status: AcademyIntakeStatus;
-  placement_required: boolean;
   admin_notes: string | null;
   reviewed_at: string | null;
   reviewed_by: string | null;
@@ -144,13 +139,6 @@ export default async function AcademyAdminIntakeDetailPage({
   }
 
   const statusEvents = (eventData ?? []) as AcademyIntakeStatusEvent[];
-  const [placementExams, parents] = await Promise.all([
-    listAcademyPlacementExams(),
-    listAcademyParents(),
-  ]);
-  const convertedParent = submission.converted_parent_id
-    ? parents.find((candidate) => candidate.id === submission.converted_parent_id) ?? null
-    : null;
 
   return (
     <AdminShell
@@ -289,6 +277,26 @@ export default async function AcademyAdminIntakeDetailPage({
               title="Convert to records"
               description="Create the parent, student, and student-subject records directly from this intake once the request is approved."
             >
+              {submission.converted_parent_id || submission.converted_student_id || submission.converted_student_subject_id ? (
+                <div className="mb-5 rounded-2xl border border-border/70 bg-background/50 p-4 text-sm text-muted-foreground">
+                  <p className="font-medium text-foreground">Converted records</p>
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    {submission.converted_parent_id ? (
+                      <Link href={`/admin/parents/${submission.converted_parent_id}`} className="secondary-button px-4 py-2">
+                        Open parent
+                      </Link>
+                    ) : null}
+                    {submission.converted_student_id ? (
+                      <Link href={`/admin/students/${submission.converted_student_id}`} className="secondary-button px-4 py-2">
+                        Open student
+                      </Link>
+                    ) : null}
+                  </div>
+                  <p className="mt-3">
+                    Next step: assign the tutor on the student record, then schedule the first session from the workflow queue or session admin.
+                  </p>
+                </div>
+              ) : null}
               <form action={convertAcademyIntakeToRecordsAction} className="space-y-4">
                 <input type="hidden" name="submission_id" value={submission.id} />
                 <div>
@@ -310,36 +318,6 @@ export default async function AcademyAdminIntakeDetailPage({
             </SectionCard>
 
             <SectionCard
-              title="Assign placement exam"
-              description="Placement assignment stays attached to the intake review workflow when an extra fit check is needed."
-            >
-              <form action={assignAcademyPlacementAttemptAction} className="space-y-4">
-                <input type="hidden" name="intake_id" value={submission.id} />
-                <input type="hidden" name="parent_id" value={convertedParent?.id ?? ""} />
-                <div>
-                  <label className="field-label">Placement exam</label>
-                  <select name="exam_id" className="field-input">
-                    {placementExams.map((exam) => (
-                      <option key={exam.id} value={exam.id}>
-                        {exam.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  This uses the converted parent record when one exists. If the intake has not been converted yet, assign from the placement admin page after conversion.
-                </p>
-                <button
-                  type="submit"
-                  className="secondary-button w-full justify-center"
-                  disabled={!convertedParent}
-                >
-                  Assign placement attempt
-                </button>
-              </form>
-            </SectionCard>
-
-            <SectionCard
               title="Admin notes"
               description="Record fit observations, follow-up needs, or internal context without changing the original intake text."
             >
@@ -350,7 +328,7 @@ export default async function AcademyAdminIntakeDetailPage({
                   rows={10}
                   defaultValue={submission.admin_notes ?? ""}
                   className="field-input"
-                  placeholder="Internal notes about fit, placement needs, scheduling concerns, follow-up steps, or conversion context."
+                  placeholder="Internal notes about fit, scheduling concerns, follow-up steps, or conversion context."
                 />
                 <button type="submit" className="primary-button w-full justify-center">
                   Save admin notes
@@ -369,10 +347,6 @@ export default async function AcademyAdminIntakeDetailPage({
                 </p>
                 <p>Terms: {submission.accepted_terms ? "Accepted" : "Not accepted"}</p>
                 <p>Privacy: {submission.accepted_privacy ? "Accepted" : "Not accepted"}</p>
-                <p>
-                  Placement required flag:{" "}
-                  {submission.placement_required ? "Yes" : "No"}
-                </p>
               </div>
             </SectionCard>
           </div>

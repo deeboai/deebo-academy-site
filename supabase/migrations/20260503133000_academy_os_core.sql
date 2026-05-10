@@ -154,67 +154,6 @@ create table if not exists public.academy_email_logs (
   sent_at timestamptz
 );
 
-create table if not exists public.academy_placement_exams (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  subject text not null,
-  grade_band text,
-  description text,
-  status text not null default 'active',
-  created_at timestamptz not null default timezone('utc', now())
-);
-
-create table if not exists public.academy_placement_questions (
-  id uuid primary key default gen_random_uuid(),
-  exam_id uuid references public.academy_placement_exams(id) on delete cascade,
-  subject text not null,
-  grade_band text,
-  topic text not null,
-  question_type text not null,
-  question_text text not null,
-  choices jsonb,
-  correct_answer text,
-  rubric text,
-  difficulty text default 'medium',
-  points numeric not null default 1,
-  created_at timestamptz not null default timezone('utc', now())
-);
-
-create table if not exists public.academy_placement_attempts (
-  id uuid primary key default gen_random_uuid(),
-  intake_id uuid references public.academy_intake_submissions(id),
-  student_id uuid references public.academy_students(id),
-  exam_id uuid references public.academy_placement_exams(id),
-  status text not null default 'assigned',
-  started_at timestamptz,
-  submitted_at timestamptz,
-  total_score numeric,
-  ai_recommendation text,
-  admin_recommendation text,
-  reviewed_by uuid,
-  reviewed_at timestamptz,
-  access_token text default encode(gen_random_bytes(18), 'hex'),
-  created_at timestamptz not null default timezone('utc', now())
-);
-
-create table if not exists public.academy_placement_responses (
-  id uuid primary key default gen_random_uuid(),
-  attempt_id uuid references public.academy_placement_attempts(id) on delete cascade,
-  question_id uuid references public.academy_placement_questions(id),
-  response text not null,
-  auto_score numeric,
-  ai_score numeric,
-  ai_feedback text,
-  ai_confidence text,
-  ai_missing_concepts jsonb,
-  ai_recommended_next_topic text,
-  admin_score numeric,
-  created_at timestamptz not null default timezone('utc', now())
-);
-
-create unique index if not exists academy_placement_responses_attempt_question_idx
-on public.academy_placement_responses (attempt_id, question_id);
-
 create table if not exists public.academy_curriculum_lessons (
   id uuid primary key default gen_random_uuid(),
   subject text not null,

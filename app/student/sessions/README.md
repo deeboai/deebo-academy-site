@@ -11,4 +11,4 @@ This folder contains the student-facing session list route.
 
 ## Notes
 
-This area gives students session visibility without exposing parent-only or internal admin details.
+This area gives students session visibility without exposing parent-only, billing, recording, or internal admin details.

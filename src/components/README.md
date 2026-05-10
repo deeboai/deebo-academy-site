@@ -7,7 +7,6 @@ This folder contains reusable user-interface components shared across the public
 ## Major Areas
 
 - `admin`: admin shell and admin UI primitives
-- `placement`: placement forms
 - `portal`: shared authenticated portal shell
 - `theme`: theme script and theme toggle
 

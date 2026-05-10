@@ -6,8 +6,6 @@ import path from "node:path";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import type { AcademyIntakeStatus } from "@/lib/academy-intake";
 import type {
-  AcademyPlacementAttemptStatus,
-  AcademyPlacementQuestionType,
   AcademyPaymentStatus,
   AcademySessionNoteStatus,
   AcademySessionStatus,
@@ -32,7 +30,6 @@ export type AcademyIntakeSubmissionRecord = {
   preferred_availability: string | null;
   referral_source: string | null;
   status: AcademyIntakeStatus;
-  placement_required: boolean;
   admin_notes: string | null;
   reviewed_at: string | null;
   reviewed_by: string | null;
@@ -68,11 +65,24 @@ export type AcademyStudentRecord = {
   updated_at: string;
 };
 
-export type AcademyStudentUserRecord = {
+export type AcademyPortalAccountRole = "admin" | "parent" | "tutor" | "student";
+export type AcademyPortalAccountStatus = "active" | "invited" | "disabled";
+
+export type AcademyPortalAccountRecord = {
   id: string;
-  student_id: string;
   email: string;
-  status: string;
+  role: AcademyPortalAccountRole;
+  status: AcademyPortalAccountStatus;
+  auth_user_id: string | null;
+  parent_id: string | null;
+  tutor_id: string | null;
+  student_id: string | null;
+  invited_by: string | null;
+  invite_sent_at: string | null;
+  password_reset_sent_at: string | null;
+  disabled_at: string | null;
+  last_login_at: string | null;
+  force_reauth_after: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -118,7 +128,7 @@ export type AcademySessionRecord = {
   meeting_url: string | null;
   google_calendar_event_id: string | null;
   status: AcademySessionStatus;
-  payment_status: string;
+  payment_status: AcademyPaymentStatus;
   created_at: string;
   updated_at: string;
 };
@@ -198,64 +208,6 @@ export type AcademyEmailLogRecord = {
   sent_at: string | null;
 };
 
-export type AcademyPlacementExamRecord = {
-  id: string;
-  name: string;
-  subject: string;
-  grade_band: string | null;
-  description: string | null;
-  status: string;
-  created_at: string;
-};
-
-export type AcademyPlacementQuestionRecord = {
-  id: string;
-  exam_id: string | null;
-  subject: string;
-  grade_band: string | null;
-  topic: string;
-  question_type: AcademyPlacementQuestionType;
-  question_text: string;
-  choices: { label: string; value: string }[] | null;
-  correct_answer: string | null;
-  rubric: string | null;
-  difficulty: string | null;
-  points: number;
-  created_at: string;
-};
-
-export type AcademyPlacementAttemptRecord = {
-  id: string;
-  intake_id: string | null;
-  student_id: string | null;
-  exam_id: string | null;
-  status: AcademyPlacementAttemptStatus;
-  started_at: string | null;
-  submitted_at: string | null;
-  total_score: number | null;
-  ai_recommendation: string | null;
-  admin_recommendation: string | null;
-  reviewed_by: string | null;
-  reviewed_at: string | null;
-  access_token: string | null;
-  created_at: string;
-};
-
-export type AcademyPlacementResponseRecord = {
-  id: string;
-  attempt_id: string | null;
-  question_id: string | null;
-  response: string;
-  auto_score: number | null;
-  ai_score: number | null;
-  ai_feedback: string | null;
-  ai_confidence: string | null;
-  ai_missing_concepts: string[] | null;
-  ai_recommended_next_topic: string | null;
-  admin_score: number | null;
-  created_at: string;
-};
-
 export type AcademyCurriculumLesson = {
   slug: string;
   subject: string;
@@ -300,8 +252,8 @@ export async function listAcademyStudents() {
   return readTable<AcademyStudentRecord>("academy_students");
 }
 
-export async function listAcademyStudentUsers() {
-  return readTable<AcademyStudentUserRecord>("academy_student_users");
+export async function listAcademyPortalAccounts() {
+  return readTable<AcademyPortalAccountRecord>("academy_portal_accounts");
 }
 
 export async function listAcademyTutors() {
@@ -336,22 +288,6 @@ export async function listAcademyEmailLogs() {
   return readTable<AcademyEmailLogRecord>("academy_email_logs");
 }
 
-export async function listAcademyPlacementExams() {
-  return readTable<AcademyPlacementExamRecord>("academy_placement_exams");
-}
-
-export async function listAcademyPlacementQuestions() {
-  return readTable<AcademyPlacementQuestionRecord>("academy_placement_questions");
-}
-
-export async function listAcademyPlacementAttempts() {
-  return readTable<AcademyPlacementAttemptRecord>("academy_placement_attempts");
-}
-
-export async function listAcademyPlacementResponses() {
-  return readTable<AcademyPlacementResponseRecord>("academy_placement_responses");
-}
-
 async function maybeSingle<T>(table: string, column: string, value: string) {
   const supabase = getSupabaseServiceClient() as any;
   const { data, error } = await supabase.from(table).select("*").eq(column, value).maybeSingle();
@@ -367,16 +303,24 @@ export async function getAcademyParentById(id: string) {
   return maybeSingle<AcademyParentRecord>("academy_parents", "id", id);
 }
 
+export async function getAcademyIntakeSubmissionById(id: string) {
+  return maybeSingle<AcademyIntakeSubmissionRecord>("academy_intake_submissions", "id", id);
+}
+
 export async function getAcademyStudentById(id: string) {
   return maybeSingle<AcademyStudentRecord>("academy_students", "id", id);
 }
 
-export async function getAcademyStudentUserById(id: string) {
-  return maybeSingle<AcademyStudentUserRecord>("academy_student_users", "id", id);
+export async function getAcademyPortalAccountById(id: string) {
+  return maybeSingle<AcademyPortalAccountRecord>("academy_portal_accounts", "id", id);
 }
 
 export async function getAcademyTutorById(id: string) {
   return maybeSingle<AcademyTutorRecord>("academy_tutors", "id", id);
+}
+
+export async function getAcademyStudentSubjectById(id: string) {
+  return maybeSingle<AcademyStudentSubjectRecord>("academy_student_subjects", "id", id);
 }
 
 export async function getAcademySessionById(id: string) {
@@ -391,16 +335,8 @@ export async function getAcademySessionNoteById(id: string) {
   return maybeSingle<AcademySessionNoteRecord>("academy_session_notes", "id", id);
 }
 
-export async function getAcademyPlacementAttemptById(id: string) {
-  return maybeSingle<AcademyPlacementAttemptRecord>("academy_placement_attempts", "id", id);
-}
-
-export async function getAcademyPlacementExamById(id: string) {
-  return maybeSingle<AcademyPlacementExamRecord>("academy_placement_exams", "id", id);
-}
-
-export async function getAcademyPlacementQuestionById(id: string) {
-  return maybeSingle<AcademyPlacementQuestionRecord>("academy_placement_questions", "id", id);
+export async function getAcademyEmailLogById(id: string) {
+  return maybeSingle<AcademyEmailLogRecord>("academy_email_logs", "id", id);
 }
 
 export async function getAcademyStudentSubjectsByStudentId(studentId: string) {
@@ -411,11 +347,6 @@ export async function getAcademyStudentSubjectsByStudentId(studentId: string) {
 export async function getAcademySessionsByStudentId(studentId: string) {
   const sessions = await listAcademySessions();
   return sessions.filter((session) => session.student_id === studentId);
-}
-
-export async function getAcademyPlacementAttemptsByStudentId(studentId: string) {
-  const attempts = await listAcademyPlacementAttempts();
-  return attempts.filter((attempt) => attempt.student_id === studentId);
 }
 
 export async function getAcademySessionsByParentId(parentId: string) {
@@ -431,16 +362,6 @@ export async function getAcademySessionsByTutorId(tutorId: string) {
 export async function getAcademyPaymentsByParentId(parentId: string) {
   const payments = await listAcademyPayments();
   return payments.filter((payment) => payment.parent_id === parentId);
-}
-
-export async function getAcademyPlacementResponsesByAttemptId(attemptId: string) {
-  const responses = await listAcademyPlacementResponses();
-  return responses.filter((response) => response.attempt_id === attemptId);
-}
-
-export async function getAcademyPlacementQuestionsByExamId(examId: string) {
-  const questions = await listAcademyPlacementQuestions();
-  return questions.filter((question) => question.exam_id === examId);
 }
 
 export async function getAcademyRecordingBySessionId(sessionId: string) {
@@ -463,12 +384,50 @@ export async function getAcademyParentByEmail(email: string) {
   return maybeSingle<AcademyParentRecord>("academy_parents", "email", email.toLowerCase());
 }
 
-export async function getAcademyStudentUserByEmail(email: string) {
-  return maybeSingle<AcademyStudentUserRecord>("academy_student_users", "email", email.toLowerCase());
+export async function getAcademyPortalAccountByEntity(input: {
+  role: AcademyPortalAccountRole;
+  entityId: string;
+}) {
+  const columnByRole: Record<AcademyPortalAccountRole, string | null> = {
+    admin: null,
+    parent: "parent_id",
+    tutor: "tutor_id",
+    student: "student_id",
+  };
+  const column = columnByRole[input.role];
+
+  if (!column) {
+    return null;
+  }
+
+  const supabase = getSupabaseServiceClient() as any;
+  const { data, error } = await supabase
+    .from("academy_portal_accounts")
+    .select("*")
+    .eq("role", input.role)
+    .eq(column, input.entityId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? null) as AcademyPortalAccountRecord | null;
 }
 
-export async function getAcademyStudentUserByStudentId(studentId: string) {
-  return maybeSingle<AcademyStudentUserRecord>("academy_student_users", "student_id", studentId);
+export async function getAcademyPortalAccountsByEmail(email: string) {
+  const supabase = getSupabaseServiceClient() as any;
+  const { data, error } = await supabase
+    .from("academy_portal_accounts")
+    .select("*")
+    .eq("email", email.toLowerCase())
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as AcademyPortalAccountRecord[];
 }
 
 export async function getAcademyTutorByEmail(email: string) {
@@ -484,7 +443,6 @@ export async function getAcademyDashboardSummary() {
     sessions,
     payments,
     notes,
-    attempts,
   ] = await Promise.all([
     listAcademyIntakeSubmissions(),
     listAcademyParents(),
@@ -493,7 +451,6 @@ export async function getAcademyDashboardSummary() {
     listAcademySessions(),
     listAcademyPayments(),
     listAcademySessionNotes(),
-    listAcademyPlacementAttempts(),
   ]);
 
   return {
@@ -504,7 +461,6 @@ export async function getAcademyDashboardSummary() {
     scheduledSessions: sessions.filter((session) => session.status === "scheduled").length,
     pendingPayments: payments.filter((payment) => payment.status === "pending").length,
     submittedNotes: notes.filter((note) => note.admin_status === "submitted").length,
-    activePlacementAttempts: attempts.filter((attempt) => attempt.status !== "reviewed").length,
   };
 }
 

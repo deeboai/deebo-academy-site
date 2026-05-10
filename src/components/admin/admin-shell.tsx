@@ -4,13 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   CircleDollarSign,
-  FileSpreadsheet,
   GraduationCap,
+  KeyRound,
+  Mail,
+  ShieldCheck,
   School,
   ScrollText,
   Users,
   UserSquare2,
   Workflow,
+  ListTodo,
 } from "lucide-react";
 
 import { signOutAcademyUserAction } from "@/actions/academy-admin-auth";
@@ -21,6 +24,11 @@ const academyAdminNavigation = [
     href: "/admin/intake",
     label: "Intake",
     icon: Workflow,
+  },
+  {
+    href: "/admin/workflow",
+    label: "Workflow",
+    icon: ListTodo,
   },
   {
     href: "/admin/parents",
@@ -53,9 +61,19 @@ const academyAdminNavigation = [
     icon: ScrollText,
   },
   {
-    href: "/admin/placement",
-    label: "Placement",
-    icon: FileSpreadsheet,
+    href: "/admin/access",
+    label: "Access",
+    icon: KeyRound,
+  },
+  {
+    href: "/admin/emails",
+    label: "Emails",
+    icon: Mail,
+  },
+  {
+    href: "/admin/system",
+    label: "System",
+    icon: ShieldCheck,
   },
 ] as const;
 

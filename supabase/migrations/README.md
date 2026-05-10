@@ -9,6 +9,8 @@ This folder contains the SQL history for Academy schema changes.
 - intake workflow expansion
 - core Academy operational tables
 - portal access support for students
+- database-backed portal access for admins, parents, tutors, and students
+- audit events for account lifecycle actions
 
 ## Notes
 

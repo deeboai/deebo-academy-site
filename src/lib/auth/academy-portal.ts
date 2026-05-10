@@ -3,16 +3,21 @@ import "server-only";
 import { redirect } from "next/navigation";
 
 import {
-  getAcademyParentByEmail,
+  getAcademyParentById,
   getAcademyStudentById,
-  getAcademyStudentUserByEmail,
-  getAcademyTutorByEmail,
+  getAcademyTutorById,
 } from "@/lib/academy-data";
-import { buildAcademyLoginPath, requireAuthenticatedAcademyUser } from "@/lib/auth/academy-access";
+import {
+  buildAcademyLoginPath,
+  resolveAcademyAccessOptionsByEmail,
+  requireAuthenticatedAcademyUser,
+} from "@/lib/auth/academy-access";
 
 export async function requireAcademyParentUser() {
   const user = await requireAuthenticatedAcademyUser("/parent");
-  const parent = await getAcademyParentByEmail(user.email ?? "");
+  const accesses = await resolveAcademyAccessOptionsByEmail(user.email);
+  const parentAccess = accesses.find((access) => access.role === "parent");
+  const parent = parentAccess ? await getAcademyParentById(parentAccess.parentId) : null;
 
   if (!parent) {
     redirect(
@@ -28,7 +33,9 @@ export async function requireAcademyParentUser() {
 
 export async function requireAcademyTutorUser() {
   const user = await requireAuthenticatedAcademyUser("/tutor");
-  const tutor = await getAcademyTutorByEmail(user.email ?? "");
+  const accesses = await resolveAcademyAccessOptionsByEmail(user.email);
+  const tutorAccess = accesses.find((access) => access.role === "tutor");
+  const tutor = tutorAccess ? await getAcademyTutorById(tutorAccess.tutorId) : null;
 
   if (!tutor) {
     redirect(buildAcademyLoginPath("This account does not have tutor portal access.", "/tutor"));
@@ -42,15 +49,16 @@ export async function requireAcademyTutorUser() {
 
 export async function requireAcademyStudentUser() {
   const user = await requireAuthenticatedAcademyUser("/student");
-  const studentUser = await getAcademyStudentUserByEmail(user.email ?? "");
+  const accesses = await resolveAcademyAccessOptionsByEmail(user.email);
+  const studentAccess = accesses.find((access) => access.role === "student");
 
-  if (!studentUser) {
+  if (!studentAccess) {
     redirect(
       buildAcademyLoginPath("This account does not have student portal access.", "/student"),
     );
   }
 
-  const student = await getAcademyStudentById(studentUser.student_id);
+  const student = await getAcademyStudentById(studentAccess.studentId);
 
   if (!student) {
     redirect(
@@ -64,6 +72,6 @@ export async function requireAcademyStudentUser() {
   return {
     user,
     student,
-    studentUser,
+    access: studentAccess,
   };
 }

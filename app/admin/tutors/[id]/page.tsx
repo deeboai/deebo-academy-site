@@ -5,10 +5,18 @@ import { SectionCard } from "@/components/admin/section-card";
 import {
   getAcademyTutorById,
   getAcademySessionsByTutorId,
+  getAcademyPortalAccountByEntity,
   listAcademyStudentSubjects,
 } from "@/lib/academy-data";
 import { requireAcademyAdminUser } from "@/lib/auth/academy-admin";
-import { upsertAcademyTutorAction } from "@/actions/academy-os-admin";
+import {
+  disableAcademyPortalAccountAction,
+  enableAcademyPortalAccountAction,
+  inviteAcademyPortalAccountAction,
+  revokeAcademyPortalAccountSessionsAction,
+  sendAcademyPortalPasswordResetAction,
+  upsertAcademyTutorAction,
+} from "@/actions/academy-os-admin";
 
 type TutorDetailPageProps = {
   params: Promise<{
@@ -25,9 +33,10 @@ export default async function AcademyAdminTutorDetailPage({ params }: TutorDetai
     notFound();
   }
 
-  const [sessions, studentSubjects] = await Promise.all([
+  const [sessions, studentSubjects, accessAccount] = await Promise.all([
     getAcademySessionsByTutorId(tutor.id),
     listAcademyStudentSubjects(),
+    getAcademyPortalAccountByEntity({ role: "tutor", entityId: tutor.id }),
   ]);
   const assignedSubjects = studentSubjects.filter((subject) => subject.tutor_id === tutor.id);
 
@@ -89,6 +98,51 @@ export default async function AcademyAdminTutorDetailPage({ params }: TutorDetai
         </SectionCard>
 
         <div className="space-y-6">
+          <SectionCard
+            title="Portal access"
+            description="Tutor login uses this access row and the matching Supabase Auth user."
+          >
+            {accessAccount ? (
+              <div className="space-y-4">
+                <div className="text-sm text-muted-foreground">
+                  <p>{accessAccount.email}</p>
+                  <p className="mt-1">Status: {accessAccount.status}</p>
+                  <p className="mt-1">Last login: {accessAccount.last_login_at ? new Date(accessAccount.last_login_at).toLocaleString() : "Never"}</p>
+                  <p className="mt-1">
+                    Forced re-auth: {accessAccount.force_reauth_after ? new Date(accessAccount.force_reauth_after).toLocaleString() : "Never"}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <form action={inviteAcademyPortalAccountAction}>
+                    <input type="hidden" name="account_id" value={accessAccount.id} />
+                    <button type="submit" className="secondary-button px-4 py-2">Send invite</button>
+                  </form>
+                  <form action={sendAcademyPortalPasswordResetAction}>
+                    <input type="hidden" name="account_id" value={accessAccount.id} />
+                    <button type="submit" className="secondary-button px-4 py-2">Reset password</button>
+                  </form>
+                  <form action={revokeAcademyPortalAccountSessionsAction}>
+                    <input type="hidden" name="account_id" value={accessAccount.id} />
+                    <button type="submit" className="secondary-button px-4 py-2">Revoke sessions</button>
+                  </form>
+                  {accessAccount.status === "disabled" ? (
+                    <form action={enableAcademyPortalAccountAction}>
+                      <input type="hidden" name="account_id" value={accessAccount.id} />
+                      <button type="submit" className="primary-button px-4 py-2">Enable</button>
+                    </form>
+                  ) : (
+                    <form action={disableAcademyPortalAccountAction}>
+                      <input type="hidden" name="account_id" value={accessAccount.id} />
+                      <button type="submit" className="secondary-button px-4 py-2">Disable</button>
+                    </form>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Save this tutor record to create the access row.</p>
+            )}
+          </SectionCard>
+
           <SectionCard title="Assigned student subjects">
             <div className="space-y-3 text-sm text-muted-foreground">
               {assignedSubjects.length

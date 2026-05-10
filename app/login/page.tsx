@@ -24,7 +24,7 @@ export default async function AcademyLoginPage({ searchParams }: LoginPageProps)
   const authenticatedUser = await getOptionalAuthenticatedAcademyUser();
   const currentAccess = await getOptionalAcademyAccessForCurrentUser();
 
-  if (currentAccess?.accesses.length === 1) {
+  if (currentAccess?.accesses.length === 1 && !params.error && !currentAccess.requiresReauthentication) {
     redirect(getAcademyRedirectPathForRole(currentAccess.accesses[0].role, params.next));
   }
 
@@ -86,18 +86,26 @@ export default async function AcademyLoginPage({ searchParams }: LoginPageProps)
               {authenticatedUser?.email && currentAccess?.accesses.length ? (
                 <div className="mt-5 rounded-2xl border border-border/70 bg-card/80 px-4 py-4 text-sm text-muted-foreground">
                   <p className="font-medium text-foreground">{authenticatedUser.email}</p>
-                  <p className="mt-2">Choose where you want to continue.</p>
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    {currentAccess.accesses.map((access) => (
-                      <Link
-                        key={access.role}
-                        href={getAcademyRedirectPathForRole(access.role, params.next)}
-                        className="secondary-button px-4 py-2"
-                      >
-                        {getAcademyRoleLabel(access.role)} Portal
-                      </Link>
-                    ))}
-                  </div>
+                  {currentAccess.requiresReauthentication ? (
+                    <p className="mt-2">
+                      This Academy account must sign in again before portal access is restored.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="mt-2">Choose where you want to continue.</p>
+                      <div className="mt-4 flex flex-wrap gap-3">
+                        {currentAccess.accesses.map((access) => (
+                          <Link
+                            key={access.role}
+                            href={getAcademyRedirectPathForRole(access.role, params.next)}
+                            className="secondary-button px-4 py-2"
+                          >
+                            {getAcademyRoleLabel(access.role)} Portal
+                          </Link>
+                        ))}
+                      </div>
+                    </>
+                  )}
                   <form action={signOutAcademyUserAction} className="mt-4">
                     <button type="submit" className="secondary-button px-4 py-2">
                       Sign out
@@ -150,7 +158,7 @@ export default async function AcademyLoginPage({ searchParams }: LoginPageProps)
                   />
                 </div>
 
-                {!currentAccess?.accesses.length ? (
+                {!currentAccess?.accesses.length || currentAccess.requiresReauthentication ? (
                   <button
                     type="submit"
                     className="primary-button w-full justify-center gap-2 py-3.5 text-base"

@@ -6,6 +6,7 @@ import {
   type AcademyIntakeStatus,
   isAcademyIntakeStatus,
 } from "@/lib/academy-intake";
+import { insertAcademyAuditEvent } from "@/lib/academy-audit";
 import { requireAcademyAdminUser } from "@/lib/auth/academy-admin";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -61,7 +62,6 @@ export async function updateAcademyIntakeStatusAction(formData: FormData) {
     .from("academy_intake_submissions")
     .update({
       status: nextStatusValue,
-      placement_required: nextStatusValue === "placement_required",
       reviewed_at: new Date().toISOString(),
       reviewed_by: user.id,
     })
@@ -87,6 +87,18 @@ export async function updateAcademyIntakeStatusAction(formData: FormData) {
     throw eventError;
   }
 
+  await insertAcademyAuditEvent({
+    actor: user,
+    action: "intake.status_updated",
+    targetType: "academy_intake_submission",
+    targetId: submissionId,
+    details: {
+      previousStatus: submission.status,
+      nextStatus: nextStatusValue,
+      note: eventNote || null,
+    },
+  });
+
   revalidateAcademyIntakeRoutes(submissionId);
 }
 
@@ -108,6 +120,16 @@ export async function updateAcademyIntakeNotesAction(formData: FormData) {
   if (error) {
     throw error;
   }
+
+  await insertAcademyAuditEvent({
+    actor: user,
+    action: "intake.notes_updated",
+    targetType: "academy_intake_submission",
+    targetId: submissionId,
+    details: {
+      hasAdminNotes: Boolean(adminNotes),
+    },
+  });
 
   revalidateAcademyIntakeRoutes(submissionId);
 }

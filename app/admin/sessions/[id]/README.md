@@ -8,7 +8,7 @@ This folder contains the single session page for `/admin/sessions/[id]`.
 
 - update time, format, and location
 - review payment status
-- attach recording data
+- attach recording data and manage recording availability
 - review note lifecycle state
 
 ## Notes

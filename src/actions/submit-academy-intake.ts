@@ -46,7 +46,6 @@ type AcademyIntakeInsert = {
   preferred_availability: string;
   referral_source: string | null;
   status: "new";
-  placement_required: false;
   admin_notes: null;
   reviewed_at: null;
   reviewed_by: null;
@@ -120,7 +119,6 @@ export async function submitAcademyIntake(
     }),
     referral_source: sanitizeOptionalText(parsedValues.data.referralSource, 120),
     status: "new",
-    placement_required: false,
     admin_notes: null,
     reviewed_at: null,
     reviewed_by: null,

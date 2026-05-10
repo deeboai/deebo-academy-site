@@ -4,14 +4,23 @@ import type { User } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 
 import {
-  getAcademyParentByEmail,
-  getAcademyStudentUserByEmail,
-  getAcademyTutorByEmail,
+  getAcademyPortalAccountsByEmail,
+  type AcademyPortalAccountRecord,
 } from "@/lib/academy-data";
-import { env, hasPublicSupabaseEnv } from "@/lib/env";
+import { hasPublicSupabaseEnv } from "@/lib/env";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-
-export type AcademyAccessRole = "admin" | "parent" | "tutor" | "student";
+import {
+  buildAcademyForcedReauthenticationPath,
+  buildAcademyLoginPath,
+  canAcademyRoleAccessPath,
+  decodeJwtIssuedAt,
+  getAcademyHomePathForRole,
+  getAcademyRedirectPathForRole,
+  getLatestForcedReauthenticationAt,
+  normalizeAcademyEmail,
+  shouldForceReauthentication,
+  type AcademyAccessRole,
+} from "./academy-access-logic";
 
 export type AcademyResolvedAccess =
   | {
@@ -22,35 +31,108 @@ export type AcademyResolvedAccess =
       role: "parent";
       redirectPath: "/parent";
       parentId: string;
+      accountId: string;
     }
   | {
       role: "tutor";
       redirectPath: "/tutor";
       tutorId: string;
+      accountId: string;
     }
   | {
       role: "student";
       redirectPath: "/student";
       studentId: string;
-      studentUserId: string;
+      accountId: string;
     };
 
 type AcademyResolvedAccessState = {
   user: User;
   accesses: AcademyResolvedAccess[];
+  requiresReauthentication: boolean;
+  forcedReauthenticationAt: string | null;
 };
 
-function normalizeEmail(email: string | null | undefined) {
-  return email?.trim().toLowerCase() ?? "";
+function buildAccessesFromPortalAccounts(accounts: AcademyPortalAccountRecord[]) {
+  return accounts
+    .filter((account) => account.status !== "disabled")
+    .flatMap((account): AcademyResolvedAccess[] => {
+      switch (account.role) {
+        case "admin":
+          return [
+            {
+              role: "admin",
+              redirectPath: "/admin",
+            },
+          ];
+        case "parent":
+          return account.parent_id
+            ? [
+                {
+                  role: "parent",
+                  redirectPath: "/parent",
+                  parentId: account.parent_id,
+                  accountId: account.id,
+                },
+              ]
+            : [];
+        case "tutor":
+          return account.tutor_id
+            ? [
+                {
+                  role: "tutor",
+                  redirectPath: "/tutor",
+                  tutorId: account.tutor_id,
+                  accountId: account.id,
+                },
+              ]
+            : [];
+        case "student":
+          return account.student_id
+            ? [
+                {
+                  role: "student",
+                  redirectPath: "/student",
+                  studentId: account.student_id,
+                  accountId: account.id,
+                },
+              ]
+            : [];
+        default:
+          return [];
+      }
+    });
 }
 
-// The login router uses a single email lookup path so every portal can share one sign-in screen.
-export function isAcademyAdminEmail(email: string | null | undefined) {
-  if (!env.academyAdminEmails.length) {
-    return false;
+async function resolveAcademyAccessStateForUser(user: User) {
+  if (!user.email) {
+    return null;
   }
 
-  return env.academyAdminEmails.includes(normalizeEmail(email));
+  const supabase = await getSupabaseServerClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const accounts = await getAcademyPortalAccountsByEmail(user.email);
+  const accesses = buildAccessesFromPortalAccounts(accounts);
+
+  if (!accesses.length) {
+    return null;
+  }
+
+  const forcedReauthenticationAt = getLatestForcedReauthenticationAt(accounts);
+  const currentSessionIssuedAt = decodeJwtIssuedAt(session?.access_token);
+  const requiresReauthentication = shouldForceReauthentication({
+    forcedReauthenticationAt,
+    currentSessionIssuedAt,
+  });
+
+  return {
+    user,
+    accesses,
+    requiresReauthentication,
+    forcedReauthenticationAt,
+  } satisfies AcademyResolvedAccessState;
 }
 
 export async function getOptionalAuthenticatedAcademyUser() {
@@ -73,6 +155,12 @@ export async function requireAuthenticatedAcademyUser(nextPath?: string): Promis
     redirect(buildAcademyLoginPath("Sign in is required.", nextPath));
   }
 
+  const accessState = await resolveAcademyAccessStateForUser(user);
+
+  if (accessState?.requiresReauthentication) {
+    redirect(buildAcademyForcedReauthenticationPath(nextPath));
+  }
+
   return user;
 }
 
@@ -86,53 +174,15 @@ export async function resolveAcademyAccessOptionsByEmail(email: string | null | 
     return [] as AcademyResolvedAccess[];
   }
 
-  const normalizedEmail = normalizeEmail(email);
+  const normalizedEmail = normalizeAcademyEmail(email);
 
   if (!normalizedEmail) {
     return [] as AcademyResolvedAccess[];
   }
 
-  const accessOptions: AcademyResolvedAccess[] = [];
-
-  if (env.academyAdminEmails.length > 0 && isAcademyAdminEmail(normalizedEmail)) {
-    accessOptions.push({
-      role: "admin",
-      redirectPath: "/admin",
-    } satisfies AcademyResolvedAccess);
-  }
-
-  const [parent, tutor, studentUser] = await Promise.all([
-    getAcademyParentByEmail(normalizedEmail),
-    getAcademyTutorByEmail(normalizedEmail),
-    getAcademyStudentUserByEmail(normalizedEmail),
-  ]);
-
-  if (parent) {
-    accessOptions.push({
-      role: "parent",
-      redirectPath: "/parent",
-      parentId: parent.id,
-    } satisfies AcademyResolvedAccess);
-  }
-
-  if (tutor) {
-    accessOptions.push({
-      role: "tutor",
-      redirectPath: "/tutor",
-      tutorId: tutor.id,
-    } satisfies AcademyResolvedAccess);
-  }
-
-  if (studentUser) {
-    accessOptions.push({
-      role: "student",
-      redirectPath: "/student",
-      studentId: studentUser.student_id,
-      studentUserId: studentUser.id,
-    } satisfies AcademyResolvedAccess);
-  }
-
-  return accessOptions;
+  // Portal authorization is stored in the database so roles can be managed from the admin UI.
+  const accounts = await getAcademyPortalAccountsByEmail(normalizedEmail);
+  return buildAccessesFromPortalAccounts(accounts);
 }
 
 export async function getOptionalAcademyAccessForCurrentUser() {
@@ -142,78 +192,16 @@ export async function getOptionalAcademyAccessForCurrentUser() {
     return null;
   }
 
-  const accesses = await resolveAcademyAccessOptionsByEmail(user.email);
-
-  if (!accesses.length) {
-    return null;
-  }
-
-  return {
-    user,
-    accesses,
-  } satisfies AcademyResolvedAccessState;
+  return resolveAcademyAccessStateForUser(user);
 }
 
-function isSafeInternalPath(pathname: string) {
-  return pathname.startsWith("/") && !pathname.startsWith("//");
-}
-
-export function getAcademyHomePathForRole(role: AcademyAccessRole) {
-  switch (role) {
-    case "admin":
-      return "/admin";
-    case "parent":
-      return "/parent";
-    case "tutor":
-      return "/tutor";
-    case "student":
-      return "/student";
-    default:
-      return "/login";
-  }
-}
-
-export function canAcademyRoleAccessPath(role: AcademyAccessRole, pathname: string) {
-  if (!isSafeInternalPath(pathname)) {
-    return false;
-  }
-
-  switch (role) {
-    case "admin":
-      return pathname === "/admin" || pathname.startsWith("/admin/");
-    case "parent":
-      return pathname === "/parent" || pathname.startsWith("/parent/");
-    case "tutor":
-      return pathname === "/tutor" || pathname.startsWith("/tutor/");
-    case "student":
-      return pathname === "/student" || pathname.startsWith("/student/");
-    default:
-      return false;
-  }
-}
-
-export function getAcademyRedirectPathForRole(role: AcademyAccessRole, requestedPath?: string | null) {
-  if (requestedPath && canAcademyRoleAccessPath(role, requestedPath)) {
-    return requestedPath;
-  }
-
-  return getAcademyHomePathForRole(role);
-}
-
-export function buildAcademyLoginPath(error?: string, nextPath?: string | null) {
-  const params = new URLSearchParams();
-
-  if (error) {
-    params.set("error", error);
-  }
-
-  if (nextPath && isSafeInternalPath(nextPath)) {
-    params.set("next", nextPath);
-  }
-
-  const queryString = params.toString();
-  return queryString ? `/login?${queryString}` : "/login";
-}
+export {
+  buildAcademyForcedReauthenticationPath,
+  buildAcademyLoginPath,
+  canAcademyRoleAccessPath,
+  getAcademyHomePathForRole,
+  getAcademyRedirectPathForRole,
+};
 
 export function getAcademyRoleLabel(role: AcademyAccessRole) {
   switch (role) {

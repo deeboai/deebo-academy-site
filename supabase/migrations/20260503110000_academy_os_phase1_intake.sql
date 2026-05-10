@@ -27,7 +27,6 @@ create table if not exists public.academy_intake_submissions (
   preferred_availability text,
   referral_source text,
   status text not null default 'new',
-  placement_required boolean not null default false,
   admin_notes text,
   reviewed_at timestamptz,
   reviewed_by uuid,
@@ -43,7 +42,6 @@ alter table public.academy_intake_submissions
   add column if not exists requested_location text,
   add column if not exists preferred_availability text,
   add column if not exists referral_source text,
-  add column if not exists placement_required boolean not null default false,
   add column if not exists admin_notes text,
   add column if not exists reviewed_at timestamptz,
   add column if not exists reviewed_by uuid;
@@ -61,7 +59,6 @@ alter table public.academy_intake_submissions
       'new',
       'reviewing',
       'needs_follow_up',
-      'placement_required',
       'approved',
       'rejected',
       'converted'

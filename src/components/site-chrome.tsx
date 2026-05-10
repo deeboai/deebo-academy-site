@@ -17,8 +17,7 @@ export function SiteChrome({ children }: SiteChromeProps) {
     pathname.startsWith("/login") ||
     pathname.startsWith("/parent") ||
     pathname.startsWith("/student") ||
-    pathname.startsWith("/tutor") ||
-    pathname.startsWith("/placement");
+    pathname.startsWith("/tutor");
 
   if (hidePublicChrome) {
     return <>{children}</>;

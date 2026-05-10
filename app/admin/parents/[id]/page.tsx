@@ -5,11 +5,20 @@ import { SectionCard } from "@/components/admin/section-card";
 import {
   getAcademyParentById,
   getAcademyPaymentsByParentId,
+  getAcademyPortalAccountByEntity,
   getAcademySessionsByParentId,
   listAcademyStudents,
 } from "@/lib/academy-data";
 import { requireAcademyAdminUser } from "@/lib/auth/academy-admin";
-import { createAcademyStudentAction, updateAcademyParentAction } from "@/actions/academy-os-admin";
+import {
+  createAcademyStudentAction,
+  disableAcademyPortalAccountAction,
+  enableAcademyPortalAccountAction,
+  inviteAcademyPortalAccountAction,
+  revokeAcademyPortalAccountSessionsAction,
+  sendAcademyPortalPasswordResetAction,
+  updateAcademyParentAction,
+} from "@/actions/academy-os-admin";
 
 type ParentDetailPageProps = {
   params: Promise<{
@@ -26,10 +35,11 @@ export default async function AcademyAdminParentDetailPage({ params }: ParentDet
     notFound();
   }
 
-  const [students, sessions, payments] = await Promise.all([
+  const [students, sessions, payments, accessAccount] = await Promise.all([
     listAcademyStudents(),
     getAcademySessionsByParentId(parent.id),
     getAcademyPaymentsByParentId(parent.id),
+    getAcademyPortalAccountByEntity({ role: "parent", entityId: parent.id }),
   ]);
   const linkedStudents = students.filter((student) => student.parent_id === parent.id);
 
@@ -70,6 +80,51 @@ export default async function AcademyAdminParentDetailPage({ params }: ParentDet
         </SectionCard>
 
         <div className="space-y-6">
+          <SectionCard
+            title="Portal access"
+            description="The parent portal uses this access row instead of a separate Supabase-only setup step."
+          >
+            {accessAccount ? (
+              <div className="space-y-4">
+                <div className="text-sm text-muted-foreground">
+                  <p>{accessAccount.email}</p>
+                  <p className="mt-1">Status: {accessAccount.status}</p>
+                  <p className="mt-1">Last login: {accessAccount.last_login_at ? new Date(accessAccount.last_login_at).toLocaleString() : "Never"}</p>
+                  <p className="mt-1">
+                    Forced re-auth: {accessAccount.force_reauth_after ? new Date(accessAccount.force_reauth_after).toLocaleString() : "Never"}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <form action={inviteAcademyPortalAccountAction}>
+                    <input type="hidden" name="account_id" value={accessAccount.id} />
+                    <button type="submit" className="secondary-button px-4 py-2">Send invite</button>
+                  </form>
+                  <form action={sendAcademyPortalPasswordResetAction}>
+                    <input type="hidden" name="account_id" value={accessAccount.id} />
+                    <button type="submit" className="secondary-button px-4 py-2">Reset password</button>
+                  </form>
+                  <form action={revokeAcademyPortalAccountSessionsAction}>
+                    <input type="hidden" name="account_id" value={accessAccount.id} />
+                    <button type="submit" className="secondary-button px-4 py-2">Revoke sessions</button>
+                  </form>
+                  {accessAccount.status === "disabled" ? (
+                    <form action={enableAcademyPortalAccountAction}>
+                      <input type="hidden" name="account_id" value={accessAccount.id} />
+                      <button type="submit" className="primary-button px-4 py-2">Enable</button>
+                    </form>
+                  ) : (
+                    <form action={disableAcademyPortalAccountAction}>
+                      <input type="hidden" name="account_id" value={accessAccount.id} />
+                      <button type="submit" className="secondary-button px-4 py-2">Disable</button>
+                    </form>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Save this parent record to create the access row.</p>
+            )}
+          </SectionCard>
+
           <SectionCard title="Linked students">
             <div className="space-y-3 text-sm text-muted-foreground">
               {linkedStudents.length

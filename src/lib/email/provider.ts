@@ -54,6 +54,12 @@ export async function sendAcademyEmail(
   options: EmailSendOptions,
 ) {
   if (!hasAcademyEmailEnv) {
+    // Persist the skip so the admin email log explains why nothing was delivered.
+    await insertEmailLog({
+      ...options.log,
+      status: "skipped",
+      errorMessage: "Academy email environment is incomplete.",
+    });
     return { sent: false as const };
   }
 

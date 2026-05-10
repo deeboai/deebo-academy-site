@@ -1,6 +1,10 @@
 export {
+  getAcademyEmailTemplatePreviews,
+  sendAcademyIntakeConfirmationEmail,
   sendAcademyIntakeEmails,
-  sendAcademyPlacementExamEmail,
+  sendAcademyIntakeNotificationEmail,
+  sendAcademyPortalInviteEmail,
+  sendAcademyPortalPasswordResetEmail,
   sendAcademySessionRecapEmail,
   sendAcademySessionScheduledEmail,
 } from "@/lib/email/index";

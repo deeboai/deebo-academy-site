@@ -4,6 +4,7 @@
 
 [build.environment]
   NODE_VERSION = "22"
+  # Only omit scan keys for values that are intentionally public at runtime.
   SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY"
 
 [[plugins]]

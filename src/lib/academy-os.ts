@@ -25,25 +25,9 @@ export const ACADEMY_NOTE_STATUSES = [
   "emailed",
 ] as const;
 
-export const ACADEMY_PLACEMENT_ATTEMPT_STATUSES = [
-  "assigned",
-  "started",
-  "submitted",
-  "reviewed",
-] as const;
-
-export const ACADEMY_PLACEMENT_QUESTION_TYPES = [
-  "multiple_choice",
-  "free_response",
-] as const;
-
 export type AcademySessionStatus = (typeof ACADEMY_SESSION_STATUSES)[number];
 export type AcademyPaymentStatus = (typeof ACADEMY_PAYMENT_STATUSES)[number];
 export type AcademySessionNoteStatus = (typeof ACADEMY_NOTE_STATUSES)[number];
-export type AcademyPlacementAttemptStatus =
-  (typeof ACADEMY_PLACEMENT_ATTEMPT_STATUSES)[number];
-export type AcademyPlacementQuestionType =
-  (typeof ACADEMY_PLACEMENT_QUESTION_TYPES)[number];
 
 export const ACADEMY_SESSION_STATUS_LABELS: Record<AcademySessionStatus, string> = {
   draft: "Draft",
@@ -72,16 +56,6 @@ export const ACADEMY_NOTE_STATUS_LABELS: Record<AcademySessionNoteStatus, string
   emailed: "Emailed",
 };
 
-export const ACADEMY_PLACEMENT_ATTEMPT_STATUS_LABELS: Record<
-  AcademyPlacementAttemptStatus,
-  string
-> = {
-  assigned: "Assigned",
-  started: "Started",
-  submitted: "Submitted",
-  reviewed: "Reviewed",
-};
-
 export function formatAcademyStatusLabel(value: string) {
   return value
     .split("_")
@@ -99,16 +73,4 @@ export function isAcademyPaymentStatus(value: string): value is AcademyPaymentSt
 
 export function isAcademySessionNoteStatus(value: string): value is AcademySessionNoteStatus {
   return ACADEMY_NOTE_STATUSES.includes(value as AcademySessionNoteStatus);
-}
-
-export function isAcademyPlacementAttemptStatus(
-  value: string,
-): value is AcademyPlacementAttemptStatus {
-  return ACADEMY_PLACEMENT_ATTEMPT_STATUSES.includes(value as AcademyPlacementAttemptStatus);
-}
-
-export function isAcademyPlacementQuestionType(
-  value: string,
-): value is AcademyPlacementQuestionType {
-  return ACADEMY_PLACEMENT_QUESTION_TYPES.includes(value as AcademyPlacementQuestionType);
 }

@@ -9,6 +9,7 @@ This folder contains the Stripe webhook endpoint implementation.
 - receive Stripe event payloads
 - verify signatures
 - update Academy payment and session payment status records
+- backfill Stripe identifiers onto local Academy payment rows when those identifiers arrive through webhook events
 
 ## Notes
 

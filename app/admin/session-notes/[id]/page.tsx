@@ -14,6 +14,10 @@ import {
   sendAcademySessionRecapAction,
   validateAcademySessionNoteAction,
 } from "@/actions/academy-os-admin";
+import { ACADEMY_NOTE_STATUSES } from "@/lib/academy-os";
+import { getDefaultAcademyAdminReviewStatus } from "@/lib/academy-session-notes";
+
+const ADMIN_REVIEW_NOTE_STATUSES = ACADEMY_NOTE_STATUSES.filter((status) => status !== "emailed");
 
 type SessionNoteDetailPageProps = {
   params: Promise<{
@@ -36,6 +40,7 @@ export default async function AcademyAdminSessionNoteDetailPage({ params }: Sess
     session?.parent_id ? getAcademyParentById(session.parent_id) : Promise.resolve(null),
     note.tutor_id ? getAcademyTutorById(note.tutor_id) : Promise.resolve(null),
   ]);
+  const defaultAdminReviewStatus = getDefaultAcademyAdminReviewStatus(note.admin_status);
 
   return (
     <AdminShell
@@ -65,7 +70,13 @@ export default async function AcademyAdminSessionNoteDetailPage({ params }: Sess
             </div>
             <div>
               <label className="field-label">Admin status</label>
-              <input name="admin_status" defaultValue={note.admin_status} className="field-input" />
+              <select name="admin_status" defaultValue={defaultAdminReviewStatus} className="field-input">
+                {ADMIN_REVIEW_NOTE_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="field-label">Admin feedback</label>

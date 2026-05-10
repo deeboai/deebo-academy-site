@@ -8,7 +8,7 @@ This folder contains the parent-facing single session route.
 
 - review one session record
 - review validated notes
-- access an active recording link when available
+- access an active recording through the Academy-managed portal redirect when available
 
 ## Notes
 

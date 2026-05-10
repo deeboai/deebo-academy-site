@@ -1,41 +1,68 @@
-import Stripe from "stripe";
+import type Stripe from "stripe";
 
 import { env } from "@/lib/env";
+import { getStripeServerClient } from "@/lib/stripe";
+import {
+  buildStripePaymentMatchClauses,
+  deriveStripeWebhookPaymentUpdate,
+} from "@/lib/stripe-webhook";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
-const stripe = env.stripeSecretKey ? new Stripe(env.stripeSecretKey) : null;
+const stripe = env.stripeSecretKey ? getStripeServerClient() : null;
 
 async function updatePaymentStatusByStripeIds(input: {
   checkoutSessionId?: string | null;
   paymentIntentId?: string | null;
   invoiceId?: string | null;
+  stripeCustomerId?: string | null;
+  stripePaymentIntentId?: string | null;
+  stripeInvoiceId?: string | null;
   status: string;
 }) {
   const supabase = getSupabaseServiceClient() as any;
-  const query = supabase.from("academy_payments").update({
-    status: input.status,
+  const matchClauses = buildStripePaymentMatchClauses({
+    checkoutSessionId: input.checkoutSessionId,
+    paymentIntentId: input.paymentIntentId,
+    invoiceId: input.invoiceId,
   });
 
-  if (input.checkoutSessionId) {
-    query.eq("stripe_checkout_session_id", input.checkoutSessionId);
+  if (!matchClauses.length) {
+    return;
   }
 
-  if (input.paymentIntentId) {
-    query.eq("stripe_payment_intent_id", input.paymentIntentId);
+  // Match by any Stripe identifier because webhook events can arrive before every identifier has been persisted locally.
+  const { data: matchingPayments, error: selectError } = await supabase
+    .from("academy_payments")
+    .select("id, session_id")
+    .or(matchClauses.join(","));
+
+  if (selectError) {
+    throw selectError;
   }
 
-  if (input.invoiceId) {
-    query.eq("stripe_invoice_id", input.invoiceId);
+  const paymentIds = (matchingPayments ?? []).map((row: { id: string }) => row.id);
+
+  if (!paymentIds.length) {
+    return;
   }
 
-  const { error, data } = await query.select("session_id");
+  const { error } = await supabase
+    .from("academy_payments")
+    .update({
+      status: input.status,
+      stripe_customer_id: input.stripeCustomerId ?? undefined,
+      stripe_payment_intent_id: input.stripePaymentIntentId ?? undefined,
+      stripe_invoice_id: input.stripeInvoiceId ?? undefined,
+    })
+    .in("id", paymentIds)
+    .select("session_id");
 
   if (error) {
     throw error;
   }
 
   const sessionIds = Array.from(
-    new Set((data ?? []).map((row: { session_id: string | null }) => row.session_id).filter(Boolean)),
+    new Set((matchingPayments ?? []).map((row: { session_id: string | null }) => row.session_id).filter(Boolean)),
   ) as string[];
 
   if (!sessionIds.length) {
@@ -73,50 +100,13 @@ export async function POST(request: Request) {
     );
   }
 
-  switch (event.type) {
-    case "checkout.session.completed": {
-      const session = event.data.object as Stripe.Checkout.Session;
-      await updatePaymentStatusByStripeIds({
-        checkoutSessionId: session.id,
-        paymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : null,
-        status: "paid",
-      });
-      break;
-    }
-    case "payment_intent.succeeded": {
-      const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      await updatePaymentStatusByStripeIds({
-        paymentIntentId: paymentIntent.id,
-        status: "paid",
-      });
-      break;
-    }
-    case "payment_intent.payment_failed": {
-      const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      await updatePaymentStatusByStripeIds({
-        paymentIntentId: paymentIntent.id,
-        status: "failed",
-      });
-      break;
-    }
-    case "invoice.paid": {
-      const invoice = event.data.object as Stripe.Invoice;
-      await updatePaymentStatusByStripeIds({
-        invoiceId: invoice.id,
-        status: "paid",
-      });
-      break;
-    }
-    case "invoice.payment_failed": {
-      const invoice = event.data.object as Stripe.Invoice;
-      await updatePaymentStatusByStripeIds({
-        invoiceId: invoice.id,
-        status: "failed",
-      });
-      break;
-    }
-    default:
-      break;
+  const paymentUpdate = deriveStripeWebhookPaymentUpdate({
+    eventType: event.type,
+    object: event.data.object,
+  });
+
+  if (paymentUpdate) {
+    await updatePaymentStatusByStripeIds(paymentUpdate);
   }
 
   return Response.json({ received: true });
