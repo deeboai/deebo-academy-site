@@ -4,18 +4,14 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 const resendApiKey = process.env.RESEND_API_KEY ?? "";
 const academyFromEmail = process.env.ACADEMY_FROM_EMAIL ?? "";
 const academyNotificationEmail = process.env.ACADEMY_NOTIFICATION_EMAIL ?? "";
-const academyAdminEmailsRaw = process.env.ACADEMY_ADMIN_EMAILS ?? "";
+const publicAcademySiteUrl = process.env.NEXT_PUBLIC_ACADEMY_SITE_URL ?? "";
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY ?? "";
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? "";
 const publicStripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
 const googleClientId = process.env.GOOGLE_CLIENT_ID ?? "";
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET ?? "";
 const googleCalendarId = process.env.GOOGLE_CALENDAR_ID ?? "";
-const openAiApiKey = process.env.OPENAI_API_KEY ?? "";
-const academyAdminEmails = academyAdminEmailsRaw
-  .split(",")
-  .map((email) => email.trim().toLowerCase())
-  .filter(Boolean);
+const googleRefreshToken = process.env.GOOGLE_REFRESH_TOKEN ?? "";
 
 export const env = {
   publicSupabaseUrl,
@@ -24,20 +20,22 @@ export const env = {
   resendApiKey,
   academyFromEmail,
   academyNotificationEmail,
-  academyAdminEmails,
+  publicAcademySiteUrl,
   stripeSecretKey,
   stripeWebhookSecret,
   publicStripePublishableKey,
   googleClientId,
   googleClientSecret,
   googleCalendarId,
-  openAiApiKey,
+  googleRefreshToken,
 };
 
 export const hasPublicSupabaseEnv = Boolean(publicSupabaseUrl && publicSupabaseAnonKey);
 export const hasServiceRoleKey = Boolean(serviceRoleKey);
 export const hasAcademyEmailEnv = Boolean(resendApiKey && academyFromEmail);
-export const hasAcademyAdminEmails = academyAdminEmails.length > 0;
+export const hasGoogleCalendarAutomationEnv = Boolean(
+  googleClientId && googleClientSecret && googleCalendarId && googleRefreshToken,
+);
 
 export function assertPublicSupabaseEnv() {
   if (!hasPublicSupabaseEnv) {
@@ -63,10 +61,10 @@ export function assertServiceRoleKey() {
   }
 }
 
-export function assertAcademyAdminEmails() {
-  if (!hasAcademyAdminEmails) {
+export function assertGoogleCalendarAutomationEnv() {
+  if (!hasGoogleCalendarAutomationEnv) {
     throw new Error(
-      "Missing ACADEMY_ADMIN_EMAILS. Add one or more comma-separated admin email addresses before enabling the Academy admin.",
+      "Missing GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_CALENDAR_ID, or GOOGLE_REFRESH_TOKEN. Set them before enabling automatic Academy scheduling.",
     );
   }
 }

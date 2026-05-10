@@ -10,6 +10,7 @@ import {
 } from "@/lib/academy-data";
 import { requireAcademyAdminUser } from "@/lib/auth/academy-admin";
 import { updateAcademyPaymentAction } from "@/actions/academy-os-admin";
+import { ACADEMY_PAYMENT_STATUSES } from "@/lib/academy-os";
 
 type PaymentDetailPageProps = {
   params: Promise<{
@@ -44,7 +45,13 @@ export default async function AcademyAdminPaymentDetailPage({ params }: PaymentD
             <input type="hidden" name="payment_id" value={payment.id} />
             <div>
               <label className="field-label">Status</label>
-              <input name="status" defaultValue={payment.status} className="field-input" />
+              <select name="status" defaultValue={payment.status} className="field-input">
+                {ACADEMY_PAYMENT_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="field-label">Description</label>

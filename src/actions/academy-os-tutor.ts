@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { requireAcademyTutorUser } from "@/lib/auth/academy-portal";
-import { getAcademySessionById } from "@/lib/academy-data";
+import { insertAcademyAuditEvent } from "@/lib/academy-audit";
+import { getTutorPortalSessionById } from "@/lib/academy-portal-data";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { sanitizeMultilineText } from "@/lib/input-security";
 
@@ -18,11 +19,11 @@ function requireTutorFormValue(formData: FormData, key: string) {
 }
 
 export async function submitAcademyTutorSessionNotesAction(formData: FormData) {
-  const { tutor } = await requireAcademyTutorUser();
+  const { user, tutor } = await requireAcademyTutorUser();
   const sessionId = requireTutorFormValue(formData, "session_id");
-  const session = await getAcademySessionById(sessionId);
+  const session = await getTutorPortalSessionById(tutor.id, sessionId);
 
-  if (!session || session.tutor_id !== tutor.id) {
+  if (!session) {
     throw new Error("This tutor is not assigned to the selected session.");
   }
 
@@ -62,12 +63,40 @@ export async function submitAcademyTutorSessionNotesAction(formData: FormData) {
     if (error) {
       throw error;
     }
+
+    await insertAcademyAuditEvent({
+      actor: user,
+      action: "session_note.submitted_by_tutor",
+      targetType: "academy_session_note",
+      targetId: String(existingNote.id),
+      details: {
+        sessionId,
+        tutorId: tutor.id,
+        mode: "update",
+      },
+    });
   } else {
-    const { error } = await supabase.from("academy_session_notes").insert(payload);
+    const { data, error } = await supabase
+      .from("academy_session_notes")
+      .insert(payload)
+      .select("id")
+      .single();
 
     if (error) {
       throw error;
     }
+
+    await insertAcademyAuditEvent({
+      actor: user,
+      action: "session_note.submitted_by_tutor",
+      targetType: "academy_session_note",
+      targetId: String(data.id),
+      details: {
+        sessionId,
+        tutorId: tutor.id,
+        mode: "create",
+      },
+    });
   }
 
   await supabase
@@ -77,8 +106,10 @@ export async function submitAcademyTutorSessionNotesAction(formData: FormData) {
     })
     .eq("id", sessionId);
 
+  revalidatePath("/tutor");
   revalidatePath("/tutor/sessions");
   revalidatePath(`/tutor/sessions/${sessionId}`);
   revalidatePath(`/tutor/sessions/${sessionId}/notes`);
+  revalidatePath("/tutor/students");
   revalidatePath("/admin/session-notes");
 }

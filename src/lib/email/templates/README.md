@@ -8,7 +8,6 @@ This folder contains template builders for Academy transactional emails.
 
 - intake confirmation
 - internal intake notification
-- placement assignment
 - session scheduled
 - session recap
 

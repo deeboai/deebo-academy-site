@@ -3,7 +3,8 @@
 import { redirect } from "next/navigation";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { hasAcademyAdminEmails, hasPublicSupabaseEnv } from "@/lib/env";
+import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { hasPublicSupabaseEnv } from "@/lib/env";
 import {
   getAcademyRedirectPathForRole,
   resolveAcademyAccessOptionsByEmail,
@@ -56,15 +57,17 @@ export async function signInAcademyUserAction(formData: FormData) {
     );
   }
 
-  if (accesses.some((access) => access.role === "admin") && !hasAcademyAdminEmails) {
-    await supabase.auth.signOut();
-    redirect(
-      buildLoginErrorRedirect(
-        "ACADEMY_ADMIN_EMAILS is not configured for this deployment.",
-        nextPath,
-      ),
-    );
-  }
+  const serviceClient = getSupabaseServiceClient() as any;
+  await serviceClient
+    .from("academy_portal_accounts")
+    .update({
+      auth_user_id: data.user.id,
+      last_login_at: new Date().toISOString(),
+      status: "active",
+      disabled_at: null,
+    })
+    .eq("email", email)
+    .neq("status", "disabled");
 
   if (nextPath) {
     const matchingAccess = accesses.find((access) =>
@@ -90,10 +93,6 @@ export async function signInAcademyUserAction(formData: FormData) {
 }
 
 export async function signInAcademyAdminAction(formData: FormData) {
-  if (!hasAcademyAdminEmails) {
-    redirect(buildLoginErrorRedirect("ACADEMY_ADMIN_EMAILS is not configured for this deployment.", "/admin"));
-  }
-
   const nextFormData = new FormData();
   nextFormData.set("email", String(formData.get("email") ?? ""));
   nextFormData.set("password", String(formData.get("password") ?? ""));

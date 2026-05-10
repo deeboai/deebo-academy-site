@@ -12,9 +12,15 @@ import {
 } from "@/lib/academy-data";
 import { requireAcademyAdminUser } from "@/lib/auth/academy-admin";
 import { createAcademySessionAction } from "@/actions/academy-os-admin";
+import { hasGoogleCalendarAutomationEnv } from "@/lib/env";
+import {
+  ACADEMY_PAYMENT_STATUSES,
+  ACADEMY_SESSION_STATUSES,
+} from "@/lib/academy-os";
 
 export default async function AcademyAdminSessionsPage() {
   const user = await requireAcademyAdminUser();
+  const calendarAutomationReady = hasGoogleCalendarAutomationEnv;
   const [sessions, parents, students, tutors, studentSubjects] = await Promise.all([
     listAcademySessions(),
     listAcademyParents(),
@@ -26,11 +32,18 @@ export default async function AcademyAdminSessionsPage() {
   return (
     <AdminShell
       title="Sessions"
-      subtitle="Sessions are the operational source of truth. Calendar IDs and meeting links attach to the business record instead of replacing it."
+      subtitle="Sessions are the operational source of truth. When Google Calendar automation is configured, the app now creates or updates the external event and Meet link from this record."
       userEmail={user.email ?? "Authenticated user"}
     >
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
-        <SectionCard title="Create session">
+        <SectionCard
+          title="Create session"
+          description={
+            calendarAutomationReady
+              ? "Saving a session will also try to sync the Google Calendar event and meeting link."
+              : "Google Calendar automation is not configured yet, so session creation will stay Academy-only until the missing env is added."
+          }
+        >
           <form action={createAcademySessionAction} className="space-y-4">
             <div>
               <label className="field-label">Parent</label>
@@ -103,8 +116,24 @@ export default async function AcademyAdminSessionsPage() {
               <input name="meeting_url" className="field-input" />
             </div>
             <div>
-              <label className="field-label">Google Calendar event ID</label>
-              <input name="google_calendar_event_id" className="field-input" />
+              <label className="field-label">Status</label>
+              <select name="status" defaultValue="scheduled" className="field-input">
+                {ACADEMY_SESSION_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="field-label">Payment status</label>
+              <select name="payment_status" defaultValue="pending" className="field-input">
+                {ACADEMY_PAYMENT_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
             </div>
             <button type="submit" className="primary-button">
               Save session

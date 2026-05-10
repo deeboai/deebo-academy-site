@@ -6,8 +6,7 @@ import {
   getAcademySessionsByStudentId,
   getAcademyStudentById,
   getAcademyStudentSubjectsByStudentId,
-  getAcademyStudentUserByStudentId,
-  getAcademyPlacementAttemptsByStudentId,
+  getAcademyPortalAccountByEntity,
   getAcademyParentById,
   listAcademyParents,
   listAcademyTutors,
@@ -15,7 +14,12 @@ import {
 import { requireAcademyAdminUser } from "@/lib/auth/academy-admin";
 import {
   assignTutorToStudentSubjectAction,
-  upsertAcademyStudentUserAction,
+  disableAcademyPortalAccountAction,
+  enableAcademyPortalAccountAction,
+  inviteAcademyPortalAccountAction,
+  revokeAcademyPortalAccountSessionsAction,
+  sendAcademyPortalPasswordResetAction,
+  upsertAcademyStudentPortalAccountAction,
   updateAcademyStudentAction,
 } from "@/actions/academy-os-admin";
 
@@ -34,14 +38,13 @@ export default async function AcademyAdminStudentDetailPage({ params }: StudentD
     notFound();
   }
 
-  const [parent, parents, studentSubjects, tutors, sessions, studentUser, placementAttempts] = await Promise.all([
+  const [parent, parents, studentSubjects, tutors, sessions, studentUser] = await Promise.all([
     student.parent_id ? getAcademyParentById(student.parent_id) : Promise.resolve(null),
     listAcademyParents(),
     getAcademyStudentSubjectsByStudentId(student.id),
     listAcademyTutors(),
     getAcademySessionsByStudentId(student.id),
-    getAcademyStudentUserByStudentId(student.id),
-    getAcademyPlacementAttemptsByStudentId(student.id),
+    getAcademyPortalAccountByEntity({ role: "student", entityId: student.id }),
   ]);
 
   return (
@@ -102,7 +105,7 @@ export default async function AcademyAdminStudentDetailPage({ params }: StudentD
             title="Student portal access"
             description="This email must match a Supabase Auth user before the student can use the student portal."
           >
-            <form action={upsertAcademyStudentUserAction} className="space-y-4">
+            <form action={upsertAcademyStudentPortalAccountAction} className="space-y-4">
               <input type="hidden" name="student_id" value={student.id} />
               <div>
                 <label className="field-label">Student portal email</label>
@@ -127,6 +130,39 @@ export default async function AcademyAdminStudentDetailPage({ params }: StudentD
                 Save portal access
               </button>
             </form>
+            {studentUser ? (
+              <div className="mt-5 flex flex-wrap gap-2">
+                <div className="w-full text-sm text-muted-foreground">
+                  <p>Last login: {studentUser.last_login_at ? new Date(studentUser.last_login_at).toLocaleString() : "Never"}</p>
+                  <p className="mt-1">
+                    Forced re-auth: {studentUser.force_reauth_after ? new Date(studentUser.force_reauth_after).toLocaleString() : "Never"}
+                  </p>
+                </div>
+                <form action={inviteAcademyPortalAccountAction}>
+                  <input type="hidden" name="account_id" value={studentUser.id} />
+                  <button type="submit" className="secondary-button px-4 py-2">Send invite</button>
+                </form>
+                <form action={sendAcademyPortalPasswordResetAction}>
+                  <input type="hidden" name="account_id" value={studentUser.id} />
+                  <button type="submit" className="secondary-button px-4 py-2">Reset password</button>
+                </form>
+                <form action={revokeAcademyPortalAccountSessionsAction}>
+                  <input type="hidden" name="account_id" value={studentUser.id} />
+                  <button type="submit" className="secondary-button px-4 py-2">Revoke sessions</button>
+                </form>
+                {studentUser.status === "disabled" ? (
+                  <form action={enableAcademyPortalAccountAction}>
+                    <input type="hidden" name="account_id" value={studentUser.id} />
+                    <button type="submit" className="primary-button px-4 py-2">Enable</button>
+                  </form>
+                ) : (
+                  <form action={disableAcademyPortalAccountAction}>
+                    <input type="hidden" name="account_id" value={studentUser.id} />
+                    <button type="submit" className="secondary-button px-4 py-2">Disable</button>
+                  </form>
+                )}
+              </div>
+            ) : null}
           </SectionCard>
 
           <SectionCard title="Subject records">
@@ -172,18 +208,6 @@ export default async function AcademyAdminStudentDetailPage({ params }: StudentD
                     </p>
                   ))
                 : "No sessions are linked yet."}
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Placement attempts">
-            <div className="space-y-3 text-sm text-muted-foreground">
-              {placementAttempts.length
-                ? placementAttempts.map((attempt) => (
-                    <p key={attempt.id}>
-                      {attempt.status} · {attempt.total_score ?? "Pending score"} · {new Date(attempt.created_at).toLocaleString()}
-                    </p>
-                  ))
-                : "No placement attempts are linked yet."}
             </div>
           </SectionCard>
         </div>

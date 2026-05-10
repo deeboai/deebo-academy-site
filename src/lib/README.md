@@ -8,11 +8,12 @@ This folder contains non-visual application logic.
 
 - auth and access control
 - Academy data helpers
+- Academy workflow, system, audit, and portal-scoped helpers
 - Academy status definitions
 - input validation
 - email delivery
+- Stripe and Google Calendar integrations
 - Supabase clients
-- placement scoring helpers
 
 ## Notes
 

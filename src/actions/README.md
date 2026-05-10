@@ -10,7 +10,6 @@ This folder contains server actions used by forms and operational workflows.
 - admin sign-in and sign-out
 - Academy admin operations
 - tutor note submission
-- placement submission
 - testimonial support
 
 ## Notes

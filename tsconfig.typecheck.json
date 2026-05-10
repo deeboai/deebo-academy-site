@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next/dev",
+    ".next/**/* *.ts",
+    ".next/**/* *.d.ts",
+    ".next/**/* 2.ts",
+    ".next/**/* 2.d.ts",
+    ".next/**/* 3.ts",
+    ".next/**/* 3.d.ts"
+  ]
+}

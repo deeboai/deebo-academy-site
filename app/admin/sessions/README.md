@@ -11,4 +11,5 @@ This folder contains session list and session creation workflows.
 
 ## Notes
 
-Sessions are the source-of-truth business record even when a calendar event exists elsewhere.
+Sessions are the source-of-truth business record even when a calendar event exists elsewhere. When Google Calendar
+automation is configured, session saves drive the external event from this route instead of requiring manual event ID entry.

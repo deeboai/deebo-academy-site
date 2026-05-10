@@ -50,7 +50,6 @@ type AcademyIntakeSubmission = {
   preferred_availability: string | null;
   referral_source: string | null;
   status: AcademyIntakeStatus;
-  placement_required: boolean;
   admin_notes: string | null;
   reviewed_at: string | null;
 };
@@ -156,11 +155,6 @@ function IntakeSubmissionCard({ submission }: { submission: AcademyIntakeSubmiss
             status="needs_follow_up"
             label="Needs follow-up"
           />
-          <IntakeQuickAction
-            submissionId={submission.id}
-            status="placement_required"
-            label="Placement required"
-          />
           <IntakeQuickAction submissionId={submission.id} status="approved" label="Approve" />
           <IntakeQuickAction submissionId={submission.id} status="rejected" label="Reject" />
           <IntakeQuickAction submissionId={submission.id} status="converted" label="Converted" />
@@ -246,7 +240,7 @@ export default async function AcademyAdminIntakePage({
   const { data, error } = await supabase
     .from("academy_intake_submissions")
     .select(
-      "id, created_at, updated_at, parent_full_name, parent_email, parent_phone, student_first_name, grade, subject, course_name, school_name, goals, upcoming_deadline, session_format, requested_location, preferred_availability, referral_source, status, placement_required, admin_notes, reviewed_at",
+      "id, created_at, updated_at, parent_full_name, parent_email, parent_phone, student_first_name, grade, subject, course_name, school_name, goals, upcoming_deadline, session_format, requested_location, preferred_availability, referral_source, status, admin_notes, reviewed_at",
     )
     .order("created_at", { ascending: false });
 
@@ -349,7 +343,7 @@ export default async function AcademyAdminIntakePage({
 
         <SectionCard
           title="Pipeline submissions"
-          description="Reviewing, follow-up, placement, approved, rejected, and converted requests stay together here for operational follow-through."
+          description="Reviewing, follow-up, approved, rejected, and converted requests stay together here for operational follow-through."
         >
           {pipelineSubmissions.length ? (
             <div className="space-y-4">
