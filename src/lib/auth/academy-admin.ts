@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import {
   buildAcademyLoginPath,
-  getOptionalAcademyAccessForCurrentUser,
+  getOptionalAcademyAdminAccessForCurrentUser,
   getOptionalAuthenticatedAcademyUser,
 } from "@/lib/auth/academy-access";
 
@@ -20,10 +20,9 @@ export async function requireAcademyAdminUser(): Promise<User> {
     redirect(buildAcademyLoginPath("Sign in is required.", "/admin"));
   }
 
-  const currentAccess = await getOptionalAcademyAccessForCurrentUser();
-  const hasAdminAccess = currentAccess?.accesses.some((access) => access.role === "admin");
+  const adminAccessAccounts = await getOptionalAcademyAdminAccessForCurrentUser();
 
-  if (!hasAdminAccess) {
+  if (!adminAccessAccounts.length) {
     redirect(
       buildAcademyLoginPath("This account is not allowed to access the Academy admin.", "/admin"),
     );

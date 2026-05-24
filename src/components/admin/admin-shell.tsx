@@ -2,19 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  CircleDollarSign,
-  GraduationCap,
-  KeyRound,
-  Mail,
-  ShieldCheck,
-  School,
-  ScrollText,
-  Users,
-  UserSquare2,
-  Workflow,
-  ListTodo,
-} from "lucide-react";
+import { Workflow } from "lucide-react";
 
 import { signOutAcademyUserAction } from "@/actions/academy-admin-auth";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
@@ -24,56 +12,6 @@ const academyAdminNavigation = [
     href: "/admin/intake",
     label: "Intake",
     icon: Workflow,
-  },
-  {
-    href: "/admin/workflow",
-    label: "Workflow",
-    icon: ListTodo,
-  },
-  {
-    href: "/admin/parents",
-    label: "Parents",
-    icon: Users,
-  },
-  {
-    href: "/admin/students",
-    label: "Students",
-    icon: GraduationCap,
-  },
-  {
-    href: "/admin/tutors",
-    label: "Tutors",
-    icon: UserSquare2,
-  },
-  {
-    href: "/admin/sessions",
-    label: "Sessions",
-    icon: School,
-  },
-  {
-    href: "/admin/payments",
-    label: "Payments",
-    icon: CircleDollarSign,
-  },
-  {
-    href: "/admin/session-notes",
-    label: "Session Notes",
-    icon: ScrollText,
-  },
-  {
-    href: "/admin/access",
-    label: "Access",
-    icon: KeyRound,
-  },
-  {
-    href: "/admin/emails",
-    label: "Emails",
-    icon: Mail,
-  },
-  {
-    href: "/admin/system",
-    label: "System",
-    icon: ShieldCheck,
   },
 ] as const;
 
@@ -126,18 +64,11 @@ export function AdminShell({
             </div>
 
             <nav className="mt-6 flex flex-wrap gap-2">
-              <Link
-                href="/admin"
-                className={`workspace-nav-link ${
-                  pathname === "/admin" ? "workspace-nav-link-active" : ""
-                }`}
-              >
-                <span>Overview</span>
-              </Link>
-
               {academyAdminNavigation.map((item) => {
                 const active =
-                  pathname === item.href || pathname.startsWith(`${item.href}/`);
+                  pathname === "/admin" ||
+                  pathname === item.href ||
+                  pathname.startsWith(`${item.href}/`);
 
                 return (
                   <Link

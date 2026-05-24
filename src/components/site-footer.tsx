@@ -31,7 +31,7 @@ export function SiteFooter() {
                 </Link>
               ))}
               <Link href="/login" className="font-medium text-foreground hover:text-primary">
-                Portal Login
+                Admin Login
               </Link>
               <Link href="/client-agreement" className="hover:text-primary">
                 Client Agreement

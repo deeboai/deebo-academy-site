@@ -14,7 +14,6 @@ import {
 } from "@/lib/academy-intake";
 import { requireAcademyAdminUser } from "@/lib/auth/academy-admin";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { convertAcademyIntakeToRecordsAction } from "@/actions/academy-os-admin";
 import { updateAcademyIntakeNotesAction, updateAcademyIntakeStatusAction } from "../actions";
 
 const intakeDateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -264,7 +263,7 @@ export default async function AcademyAdminIntakeDetailPage({
           <div className="space-y-6">
             <SectionCard
               title="Admin actions"
-              description="Use these controls to move the intake through the Academy review pipeline."
+              description="Use these controls to move the intake through the review pipeline without leaving the original submission record."
             >
               <div className="flex flex-wrap gap-3">
                 {ACADEMY_INTAKE_STATUSES.map((status) => (
@@ -274,52 +273,8 @@ export default async function AcademyAdminIntakeDetailPage({
             </SectionCard>
 
             <SectionCard
-              title="Convert to records"
-              description="Create the parent, student, and student-subject records directly from this intake once the request is approved."
-            >
-              {submission.converted_parent_id || submission.converted_student_id || submission.converted_student_subject_id ? (
-                <div className="mb-5 rounded-2xl border border-border/70 bg-background/50 p-4 text-sm text-muted-foreground">
-                  <p className="font-medium text-foreground">Converted records</p>
-                  <div className="mt-3 flex flex-wrap gap-3">
-                    {submission.converted_parent_id ? (
-                      <Link href={`/admin/parents/${submission.converted_parent_id}`} className="secondary-button px-4 py-2">
-                        Open parent
-                      </Link>
-                    ) : null}
-                    {submission.converted_student_id ? (
-                      <Link href={`/admin/students/${submission.converted_student_id}`} className="secondary-button px-4 py-2">
-                        Open student
-                      </Link>
-                    ) : null}
-                  </div>
-                  <p className="mt-3">
-                    Next step: assign the tutor on the student record, then schedule the first session from the workflow queue or session admin.
-                  </p>
-                </div>
-              ) : null}
-              <form action={convertAcademyIntakeToRecordsAction} className="space-y-4">
-                <input type="hidden" name="submission_id" value={submission.id} />
-                <div>
-                  <label className="field-label">Student last name</label>
-                  <input name="student_last_name" className="field-input" />
-                </div>
-                <div>
-                  <label className="field-label">Subject level</label>
-                  <input
-                    name="subject_level"
-                    className="field-input"
-                    placeholder="Precalculus honors, middle school algebra, AP level, etc."
-                  />
-                </div>
-                <button type="submit" className="primary-button w-full justify-center">
-                  Convert to parent and student records
-                </button>
-              </form>
-            </SectionCard>
-
-            <SectionCard
               title="Admin notes"
-              description="Record fit observations, follow-up needs, or internal context without changing the original intake text."
+              description="Record fit observations, follow-up needs, and internal context without changing the original intake text."
             >
               <form action={updateAcademyIntakeNotesAction} className="space-y-4">
                 <input type="hidden" name="submission_id" value={submission.id} />
@@ -349,6 +304,23 @@ export default async function AcademyAdminIntakeDetailPage({
                 <p>Privacy: {submission.accepted_privacy ? "Accepted" : "Not accepted"}</p>
               </div>
             </SectionCard>
+
+            {(submission.converted_parent_id ||
+              submission.converted_student_id ||
+              submission.converted_student_subject_id) ? (
+              <SectionCard
+                title="Legacy conversion fields"
+                description="These legacy links are kept visible for historical records, but the admin workspace no longer routes into parent, student, or portal management screens."
+              >
+                <div className="space-y-3 text-sm text-muted-foreground">
+                  <p>Parent record id: {submission.converted_parent_id ?? "Not set"}</p>
+                  <p>Student record id: {submission.converted_student_id ?? "Not set"}</p>
+                  <p>
+                    Student subject id: {submission.converted_student_subject_id ?? "Not set"}
+                  </p>
+                </div>
+              </SectionCard>
+            ) : null}
           </div>
         </div>
       </div>

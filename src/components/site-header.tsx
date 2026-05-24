@@ -30,7 +30,7 @@ export function SiteHeader() {
                 Back to DeeboAI
               </a>
               <Link href="/login" className="secondary-button hidden px-4 py-2 lg:inline-flex">
-                Portal Login
+                Admin Login
               </Link>
               <ThemeToggle />
               <Link href="/book" className="primary-button px-4 sm:px-6">

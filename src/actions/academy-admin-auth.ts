@@ -2,34 +2,31 @@
 
 import { redirect } from "next/navigation";
 
+import { getAcademyAdminAccessByEmail, getAcademyAdminRedirectPath } from "@/lib/auth/academy-access";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { hasPublicSupabaseEnv } from "@/lib/env";
-import {
-  getAcademyRedirectPathForRole,
-  resolveAcademyAccessOptionsByEmail,
-} from "@/lib/auth/academy-access";
 
 function buildLoginErrorRedirect(message: string, nextPath?: string | null) {
   const params = new URLSearchParams({
     error: message,
   });
 
-  if (nextPath?.startsWith("/") && !nextPath.startsWith("//")) {
+  if (nextPath && (nextPath === "/admin" || nextPath.startsWith("/admin/"))) {
     params.set("next", nextPath);
   }
 
   return `/login?${params.toString()}`;
 }
 
-export async function signInAcademyUserAction(formData: FormData) {
+export async function signInAcademyAdminAction(formData: FormData) {
   if (!hasPublicSupabaseEnv) {
     redirect(buildLoginErrorRedirect("Supabase environment variables are not configured."));
   }
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
-  const nextPath = String(formData.get("next") ?? "").trim();
+  const nextPath = getAcademyAdminRedirectPath(String(formData.get("next") ?? "").trim());
 
   if (!email || !password) {
     redirect(buildLoginErrorRedirect("Enter both an email address and password.", nextPath));
@@ -45,13 +42,27 @@ export async function signInAcademyUserAction(formData: FormData) {
     redirect(buildLoginErrorRedirect(error?.message ?? "Unable to sign in.", nextPath));
   }
 
-  const accesses = await resolveAcademyAccessOptionsByEmail(data.user.email);
+  let adminAccounts;
 
-  if (!accesses.length) {
+  try {
+    // Admin access stays database-backed so access can be revoked without changing environment configuration.
+    adminAccounts = await getAcademyAdminAccessByEmail(data.user.email);
+  } catch (accessError) {
+    console.error("Academy admin access bootstrap failed after sign-in", accessError);
     await supabase.auth.signOut();
     redirect(
       buildLoginErrorRedirect(
-        "This account does not yet have Academy portal access. Link it to an admin, parent, tutor, or student record first.",
+        "Academy admin access is temporarily unavailable. Please try again shortly.",
+        nextPath,
+      ),
+    );
+  }
+
+  if (!adminAccounts.length) {
+    await supabase.auth.signOut();
+    redirect(
+      buildLoginErrorRedirect(
+        "This account is not allowed to access the Academy admin.",
         nextPath,
       ),
     );
@@ -67,38 +78,10 @@ export async function signInAcademyUserAction(formData: FormData) {
       disabled_at: null,
     })
     .eq("email", email)
+    .eq("role", "admin")
     .neq("status", "disabled");
 
-  if (nextPath) {
-    const matchingAccess = accesses.find((access) =>
-      getAcademyRedirectPathForRole(access.role, nextPath) === nextPath,
-    );
-
-    if (matchingAccess) {
-      redirect(nextPath);
-    }
-  }
-
-  if (accesses.length === 1) {
-    redirect(getAcademyRedirectPathForRole(accesses[0].role, nextPath));
-  }
-
-  const params = new URLSearchParams();
-
-  if (nextPath?.startsWith("/") && !nextPath.startsWith("//")) {
-    params.set("next", nextPath);
-  }
-
-  redirect(params.toString() ? `/login?${params.toString()}` : "/login");
-}
-
-export async function signInAcademyAdminAction(formData: FormData) {
-  const nextFormData = new FormData();
-  nextFormData.set("email", String(formData.get("email") ?? ""));
-  nextFormData.set("password", String(formData.get("password") ?? ""));
-  nextFormData.set("next", "/admin");
-
-  return signInAcademyUserAction(nextFormData);
+  redirect(nextPath);
 }
 
 export async function signOutAcademyUserAction() {
