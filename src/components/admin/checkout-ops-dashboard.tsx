@@ -19,7 +19,7 @@ import {
   updateCheckoutAccessCodeAction,
   upsertCheckoutPlanAction,
   upsertCheckoutPromoCodeAction,
-} from "@/app/admin/checkout/actions";
+} from "../../../app/admin/checkout/actions";
 import { SectionCard } from "@/components/admin/section-card";
 import {
   formatUsdFromCents,
