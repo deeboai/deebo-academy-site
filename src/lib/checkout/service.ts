@@ -4,9 +4,13 @@ import { z } from "zod";
 
 import { sanitizeEmailAddress, sanitizePlainText } from "@/lib/input-security";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+
 import { createAccessCodeHash, normalizeAccessCode, verifyAccessCodeHash } from "@/lib/checkout/access-codes";
+import { decryptStoredAccessCode, encryptStoredAccessCode, generateReadableAccessCode } from "@/lib/checkout/code-secrets";
 import { computeCheckoutAmounts } from "@/lib/checkout/pricing";
 import {
+  CHECKOUT_PAYMENT_METHOD_TYPES,
+  CHECKOUT_PLAN_IDS,
   CLIENT_AGREEMENT_VERSION,
   DEFAULT_CHECKOUT_PLANS,
   PRIVACY_POLICY_VERSION,
@@ -17,6 +21,10 @@ import {
   type CheckoutPaymentMethodType,
   type CheckoutPlanId,
 } from "@/lib/checkout/constants";
+
+export const checkoutAccessCodeLookupSchema = z.object({
+  access_code: z.string().trim().min(1).max(120),
+});
 
 export const checkoutCalculationSchema = z.object({
   plan_id: z.string().trim().min(1),
@@ -36,6 +44,7 @@ export type CheckoutPlanRecord = {
   id: CheckoutPlanId;
   name: string;
   monthly_price_cents: number;
+  monthly_hours: number;
   description: string;
   included_features: string[];
   sort_order: number;
@@ -47,11 +56,25 @@ export type CheckoutAccessCodeRecord = {
   id: string;
   label: string | null;
   code_hash: string;
+  encrypted_code: string | null;
   active: boolean;
   starts_at: string | null;
   expires_at: string | null;
   max_uses: number | null;
   use_count: number;
+  last_used_at: string | null;
+  student_first_name: string | null;
+  student_last_name: string | null;
+  parent_contact_name: string | null;
+  parent_contact_email: string | null;
+  approved_plan_id: CheckoutPlanId | null;
+  allowed_payment_methods: CheckoutPaymentMethodType[] | null;
+  internal_note: string | null;
+  created_by_email: string | null;
+  default_promo_code_id: string | null;
+  default_promo_code_code: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type CheckoutPromoCodeRecord = {
@@ -66,6 +89,13 @@ export type CheckoutPromoCodeRecord = {
   max_redemptions: number | null;
   redemption_count: number;
   applies_to_plans: string[] | null;
+  can_combine_with_access_code: boolean;
+  assigned_contact_email: string | null;
+  internal_note: string | null;
+  stripe_coupon_id: string | null;
+  stripe_promotion_code_id: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type CheckoutPricingResult = {
@@ -87,6 +117,9 @@ export type CheckoutPricingResult = {
   accessCode: null | {
     id: string;
     label: string | null;
+    approvedPlanId: CheckoutPlanId | null;
+    allowedPaymentMethods: CheckoutPaymentMethodType[];
+    defaultPromoCode: string | null;
   };
 };
 
@@ -100,12 +133,26 @@ export type CheckoutEnrollmentDraft = {
   promoCodeId: string | null;
 };
 
-const GENERIC_ACCESS_CODE_ERROR =
-  "Enrollment is currently by approval only. Enter the access code provided by Deebo Academy to continue.";
+export type CheckoutAccessCodeValidationResult = {
+  valid: boolean;
+  error: string | null;
+  accessCode: null | {
+    id: string;
+    label: string | null;
+    code: string | null;
+    studentFirstName: string | null;
+    studentLastName: string | null;
+    parentContactName: string | null;
+    parentContactEmail: string | null;
+    approvedPlanId: CheckoutPlanId | null;
+    allowedPaymentMethods: CheckoutPaymentMethodType[];
+    defaultPromoCode: string | null;
+  };
+  eligiblePlans: CheckoutPlanRecord[];
+};
 
-function getNowIso() {
-  return new Date().toISOString();
-}
+const GENERIC_ACCESS_CODE_ERROR =
+  "This access code is invalid.";
 
 function normalizePromoCode(value: string) {
   return sanitizePlainText(value, { maxLength: 80 }).toUpperCase();
@@ -134,11 +181,98 @@ function isWithinActiveWindow(input: {
   return true;
 }
 
+function getAllPaymentMethods() {
+  return [...CHECKOUT_PAYMENT_METHOD_TYPES];
+}
+
+function normalizeAllowedPaymentMethods(
+  value: CheckoutPaymentMethodType[] | null | undefined,
+) {
+  const cleaned = (value ?? []).filter((entry): entry is CheckoutPaymentMethodType =>
+    isCheckoutPaymentMethodType(entry),
+  );
+
+  return cleaned.length ? cleaned : getAllPaymentMethods();
+}
+
+function mapDefaultPlanSeedToRecord() {
+  return DEFAULT_CHECKOUT_PLANS.map((plan) => ({
+    id: plan.id,
+    name: plan.name,
+    monthly_price_cents: plan.monthlyPriceCents,
+    monthly_hours: plan.monthlyHours,
+    description: plan.description,
+    included_features: [...plan.includedFeatures],
+    sort_order: plan.sortOrder,
+    active: true,
+    badge: plan.badge ?? null,
+  })) satisfies CheckoutPlanRecord[];
+}
+
+function safeDecryptAccessCodeValue(storedValue: string | null | undefined) {
+  try {
+    return decryptStoredAccessCode(storedValue);
+  } catch {
+    return null;
+  }
+}
+
+function getEligiblePlanIds(accessCode: CheckoutAccessCodeRecord | null) {
+  if (accessCode?.approved_plan_id) {
+    return [accessCode.approved_plan_id];
+  }
+
+  return [...CHECKOUT_PLAN_IDS];
+}
+
+function getEligiblePlansForAccessCode(
+  accessCode: CheckoutAccessCodeRecord | null,
+  plans: CheckoutPlanRecord[],
+) {
+  const eligiblePlanIds = new Set(getEligiblePlanIds(accessCode));
+  return plans.filter((plan) => eligiblePlanIds.has(plan.id));
+}
+
+function mapAccessCodeErrorStatus(input: {
+  record: CheckoutAccessCodeRecord | null;
+  nowMs: number;
+}) {
+  if (!input.record) {
+    return GENERIC_ACCESS_CODE_ERROR;
+  }
+
+  if (!input.record.active) {
+    return "This access code is invalid.";
+  }
+
+  const startsAtMs = parseIsoDate(input.record.starts_at);
+  const expiresAtMs = parseIsoDate(input.record.expires_at);
+
+  if (startsAtMs !== null && input.nowMs < startsAtMs) {
+    return "This access code is invalid.";
+  }
+
+  if (expiresAtMs !== null && input.nowMs > expiresAtMs) {
+    return "This access code has expired.";
+  }
+
+  if (
+    input.record.max_uses !== null &&
+    input.record.use_count >= input.record.max_uses
+  ) {
+    return "This access code has already been used.";
+  }
+
+  return null;
+}
+
 export async function listCheckoutPlans() {
   const supabase = getSupabaseServiceClient() as any;
   const { data, error } = await supabase
     .from("checkout_plans")
-    .select("id, name, monthly_price_cents, description, included_features, sort_order, active, badge")
+    .select(
+      "id, name, monthly_price_cents, monthly_hours, description, included_features, sort_order, active, badge",
+    )
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
 
@@ -154,26 +288,15 @@ export async function listActiveCheckoutPlans() {
   return plans.filter((plan) => plan.active);
 }
 
-function mapDefaultPlanSeedToRecord() {
-  return DEFAULT_CHECKOUT_PLANS.map((plan) => ({
-    id: plan.id,
-    name: plan.name,
-    monthly_price_cents: plan.monthlyPriceCents,
-    description: plan.description,
-    included_features: [...plan.includedFeatures],
-    sort_order: plan.sortOrder,
-    active: true,
-    badge: plan.badge ?? null,
-  })) satisfies CheckoutPlanRecord[];
-}
-
 export async function listPublicCheckoutPlans() {
   try {
     const { getSupabaseServerClient } = await import("@/lib/supabase/server");
     const supabase = await getSupabaseServerClient();
     const queryPromise = supabase
       .from("checkout_plans")
-      .select("id, name, monthly_price_cents, description, included_features, sort_order, active, badge")
+      .select(
+        "id, name, monthly_price_cents, monthly_hours, description, included_features, sort_order, active, badge",
+      )
       .eq("active", true)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true });
@@ -187,10 +310,9 @@ export async function listPublicCheckoutPlans() {
     }
 
     const plans = (data ?? []) as CheckoutPlanRecord[];
-
     return plans.length ? plans : mapDefaultPlanSeedToRecord();
   } catch {
-    // Public pricing routes should stay available even if Supabase is temporarily unavailable.
+    // Keep pricing and checkout pages available even if the public database read is slow.
     return mapDefaultPlanSeedToRecord();
   }
 }
@@ -203,7 +325,9 @@ export async function getCheckoutPlan(planId: string) {
   const supabase = getSupabaseServiceClient() as any;
   const { data, error } = await supabase
     .from("checkout_plans")
-    .select("id, name, monthly_price_cents, description, included_features, sort_order, active, badge")
+    .select(
+      "id, name, monthly_price_cents, monthly_hours, description, included_features, sort_order, active, badge",
+    )
     .eq("id", planId)
     .maybeSingle();
 
@@ -218,7 +342,9 @@ export async function listCheckoutAccessCodes() {
   const supabase = getSupabaseServiceClient() as any;
   const { data, error } = await supabase
     .from("checkout_access_codes")
-    .select("id, label, code_hash, active, starts_at, expires_at, max_uses, use_count, created_at")
+    .select(
+      "id, label, code_hash, encrypted_code, active, starts_at, expires_at, max_uses, use_count, last_used_at, student_first_name, student_last_name, parent_contact_name, parent_contact_email, approved_plan_id, allowed_payment_methods, internal_note, created_by_email, default_promo_code_id, default_promo_code_code, created_at, updated_at",
+    )
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -233,7 +359,7 @@ export async function listCheckoutPromoCodes() {
   const { data, error } = await supabase
     .from("checkout_promo_codes")
     .select(
-      "id, code, discount_type, percentage_off, amount_off_cents, active, starts_at, expires_at, max_redemptions, redemption_count, applies_to_plans, created_at",
+      "id, code, discount_type, percentage_off, amount_off_cents, active, starts_at, expires_at, max_redemptions, redemption_count, applies_to_plans, can_combine_with_access_code, assigned_contact_email, internal_note, stripe_coupon_id, stripe_promotion_code_id, created_at, updated_at",
     )
     .order("created_at", { ascending: false });
 
@@ -244,14 +370,14 @@ export async function listCheckoutPromoCodes() {
   return (data ?? []) as CheckoutPromoCodeRecord[];
 }
 
-async function getActiveAccessCodeMatch(rawAccessCode: string) {
+async function findAccessCodeByRawCode(rawAccessCode: string) {
   const normalizedAccessCode = normalizeAccessCode(rawAccessCode);
-  const nowMs = Date.now();
   const supabase = getSupabaseServiceClient() as any;
   const { data, error } = await supabase
     .from("checkout_access_codes")
-    .select("id, label, code_hash, active, starts_at, expires_at, max_uses, use_count")
-    .eq("active", true)
+    .select(
+      "id, label, code_hash, encrypted_code, active, starts_at, expires_at, max_uses, use_count, last_used_at, student_first_name, student_last_name, parent_contact_name, parent_contact_email, approved_plan_id, allowed_payment_methods, internal_note, created_by_email, default_promo_code_id, default_promo_code_code, created_at, updated_at",
+    )
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -261,61 +387,86 @@ async function getActiveAccessCodeMatch(rawAccessCode: string) {
   const accessCodes = (data ?? []) as CheckoutAccessCodeRecord[];
 
   return (
-    accessCodes.find((accessCode) => {
-      if (!isWithinActiveWindow({ startsAt: accessCode.starts_at, expiresAt: accessCode.expires_at, nowMs })) {
-        return false;
-      }
-
-      if (accessCode.max_uses !== null && accessCode.use_count >= accessCode.max_uses) {
-        return false;
-      }
-
-      return verifyAccessCodeHash(normalizedAccessCode, accessCode.code_hash);
-    }) ?? null
+    accessCodes.find((accessCode) =>
+      verifyAccessCodeHash(normalizedAccessCode, accessCode.code_hash),
+    ) ?? null
   );
 }
 
-async function getValidatedPromoCode(input: {
-  rawPromoCode: string;
-  planId: CheckoutPlanId;
-}) {
-  const normalizedPromoCode = normalizePromoCode(input.rawPromoCode);
-
-  if (!normalizedPromoCode) {
-    return {
-      promoCode: null,
-      error: null,
-    };
-  }
-
+async function getPromoCodeById(promoCodeId: string) {
   const supabase = getSupabaseServiceClient() as any;
   const { data, error } = await supabase
     .from("checkout_promo_codes")
     .select(
-      "id, code, discount_type, percentage_off, amount_off_cents, active, starts_at, expires_at, max_redemptions, redemption_count, applies_to_plans",
+      "id, code, discount_type, percentage_off, amount_off_cents, active, starts_at, expires_at, max_redemptions, redemption_count, applies_to_plans, can_combine_with_access_code, assigned_contact_email, internal_note, stripe_coupon_id, stripe_promotion_code_id, created_at, updated_at",
     )
-    .eq("normalized_code", normalizedPromoCode)
+    .eq("id", promoCodeId)
     .maybeSingle();
 
   if (error) {
     throw error;
   }
 
-  const promoCode = (data as CheckoutPromoCodeRecord | null) ?? null;
+  return (data as CheckoutPromoCodeRecord | null) ?? null;
+}
+
+async function getValidatedPromoCode(input: {
+  rawPromoCode: string;
+  planId: CheckoutPlanId;
+  defaultPromoCodeId?: string | null;
+}) {
+  const normalizedPromoCode = normalizePromoCode(input.rawPromoCode);
+  let promoCode: CheckoutPromoCodeRecord | null = null;
+
+  if (normalizedPromoCode) {
+    const supabase = getSupabaseServiceClient() as any;
+    const { data, error } = await supabase
+      .from("checkout_promo_codes")
+      .select(
+        "id, code, discount_type, percentage_off, amount_off_cents, active, starts_at, expires_at, max_redemptions, redemption_count, applies_to_plans, can_combine_with_access_code, assigned_contact_email, internal_note, stripe_coupon_id, stripe_promotion_code_id, created_at, updated_at",
+      )
+      .eq("normalized_code", normalizedPromoCode)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    promoCode = (data as CheckoutPromoCodeRecord | null) ?? null;
+  } else if (input.defaultPromoCodeId) {
+    promoCode = await getPromoCodeById(input.defaultPromoCodeId);
+  }
 
   if (!promoCode) {
+    if (!normalizedPromoCode) {
+      return {
+        promoCode: null,
+        error: null,
+      };
+    }
+
     return {
       promoCode: null,
-      error: "This promo code could not be applied.",
+      error: "This promo code is invalid.",
     };
   }
 
   const nowMs = Date.now();
 
-  if (!promoCode.active || !isWithinActiveWindow({ startsAt: promoCode.starts_at, expiresAt: promoCode.expires_at, nowMs })) {
+  if (!promoCode.active) {
     return {
       promoCode: null,
-      error: "This promo code could not be applied.",
+      error: "This promo code is invalid.",
+    };
+  }
+
+  if (!isWithinActiveWindow({ startsAt: promoCode.starts_at, expiresAt: promoCode.expires_at, nowMs })) {
+    return {
+      promoCode: null,
+      error:
+        promoCode.expires_at && nowMs > new Date(promoCode.expires_at).getTime()
+          ? "This promo code has expired."
+          : "This promo code is invalid.",
     };
   }
 
@@ -325,7 +476,7 @@ async function getValidatedPromoCode(input: {
   ) {
     return {
       promoCode: null,
-      error: "This promo code has reached its redemption limit.",
+      error: "This promo code has already reached its redemption limit.",
     };
   }
 
@@ -335,13 +486,52 @@ async function getValidatedPromoCode(input: {
   ) {
     return {
       promoCode: null,
-      error: "This promo code does not apply to the selected plan.",
+      error: "This promo code does not apply to this plan.",
     };
   }
 
   return {
     promoCode,
     error: null,
+  };
+}
+
+export async function validateCheckoutAccessCode(rawAccessCode: string): Promise<CheckoutAccessCodeValidationResult> {
+  const record = await findAccessCodeByRawCode(rawAccessCode);
+  const nowMs = Date.now();
+  const accessCodeError = mapAccessCodeErrorStatus({
+    record,
+    nowMs,
+  });
+
+  if (accessCodeError) {
+    return {
+      valid: false,
+      error: accessCodeError,
+      accessCode: null,
+      eligiblePlans: [],
+    };
+  }
+
+  const activePlans = await listActiveCheckoutPlans();
+  const eligiblePlans = getEligiblePlansForAccessCode(record, activePlans);
+
+  return {
+    valid: true,
+    error: null,
+    accessCode: {
+      id: record!.id,
+      label: record!.label,
+      code: safeDecryptAccessCodeValue(record!.encrypted_code),
+      studentFirstName: record!.student_first_name,
+      studentLastName: record!.student_last_name,
+      parentContactName: record!.parent_contact_name,
+      parentContactEmail: record!.parent_contact_email,
+      approvedPlanId: record!.approved_plan_id,
+      allowedPaymentMethods: normalizeAllowedPaymentMethods(record!.allowed_payment_methods),
+      defaultPromoCode: record!.default_promo_code_code,
+    },
+    eligiblePlans,
   };
 }
 
@@ -365,70 +555,100 @@ export async function calculateCheckoutPricing(input: {
     };
   }
 
-  const plan = await getCheckoutPlan(input.planId);
+  const accessCodeValidation = await validateCheckoutAccessCode(input.accessCode);
+
+  if (!accessCodeValidation.valid || !accessCodeValidation.accessCode) {
+    const fallbackPlan = await getCheckoutPlan(input.planId);
+
+    return {
+      valid: false,
+      error: accessCodeValidation.error ?? GENERIC_ACCESS_CODE_ERROR,
+      basePriceCents: fallbackPlan?.monthly_price_cents ?? 0,
+      discountCents: 0,
+      cardAdjustmentCents: 0,
+      totalCents: fallbackPlan?.monthly_price_cents ?? 0,
+      displayTotal: formatUsdFromCents(fallbackPlan?.monthly_price_cents ?? 0),
+      promoApplied: null,
+      accessCode: null,
+    };
+  }
+
+  const plan = accessCodeValidation.eligiblePlans.find((entry) => entry.id === input.planId) ?? null;
 
   if (!plan || !plan.active) {
     return {
       valid: false,
-      error: "The selected plan is not available right now.",
+      error: "This access code is not approved for the selected plan.",
       basePriceCents: 0,
       discountCents: 0,
       cardAdjustmentCents: 0,
       totalCents: 0,
       displayTotal: formatUsdFromCents(0),
       promoApplied: null,
-      accessCode: null,
+      accessCode: {
+        id: accessCodeValidation.accessCode.id,
+        label: accessCodeValidation.accessCode.label,
+        approvedPlanId: accessCodeValidation.accessCode.approvedPlanId,
+        allowedPaymentMethods: accessCodeValidation.accessCode.allowedPaymentMethods,
+        defaultPromoCode: accessCodeValidation.accessCode.defaultPromoCode,
+      },
     };
   }
 
-  const accessCode = await getActiveAccessCodeMatch(input.accessCode);
-
-  if (!accessCode) {
+  if (!accessCodeValidation.accessCode.allowedPaymentMethods.includes(input.paymentMethodType)) {
     return {
       valid: false,
-      error: GENERIC_ACCESS_CODE_ERROR,
+      error: "This access code is not approved for the selected payment method.",
       basePriceCents: plan.monthly_price_cents,
       discountCents: 0,
       cardAdjustmentCents: 0,
       totalCents: plan.monthly_price_cents,
       displayTotal: formatUsdFromCents(plan.monthly_price_cents),
       promoApplied: null,
-      accessCode: null,
+      accessCode: {
+        id: accessCodeValidation.accessCode.id,
+        label: accessCodeValidation.accessCode.label,
+        approvedPlanId: accessCodeValidation.accessCode.approvedPlanId,
+        allowedPaymentMethods: accessCodeValidation.accessCode.allowedPaymentMethods,
+        defaultPromoCode: accessCodeValidation.accessCode.defaultPromoCode,
+      },
     };
   }
 
-  let promoCode: CheckoutPromoCodeRecord | null = null;
+  const matchedAccessCode = await findAccessCodeByRawCode(input.accessCode);
+  const promoValidation = await getValidatedPromoCode({
+    rawPromoCode: input.promoCode ?? "",
+    planId: plan.id,
+    defaultPromoCodeId: matchedAccessCode?.default_promo_code_id ?? null,
+  });
 
-  if (input.promoCode?.trim()) {
-    const promoValidation = await getValidatedPromoCode({
-      rawPromoCode: input.promoCode,
+  if (promoValidation.error) {
+    return {
+      valid: false,
+      error: promoValidation.error,
       planId: plan.id,
-    });
-
-    if (promoValidation.error) {
-      return {
-        valid: false,
-        error: promoValidation.error,
-        basePriceCents: plan.monthly_price_cents,
-        discountCents: 0,
-        cardAdjustmentCents: 0,
-        totalCents: plan.monthly_price_cents,
-        displayTotal: formatUsdFromCents(plan.monthly_price_cents),
-        promoApplied: null,
-        accessCode: {
-          id: accessCode.id,
-          label: accessCode.label,
-        },
-      };
-    }
-
-    promoCode = promoValidation.promoCode;
+      planName: plan.name,
+      paymentMethodType: input.paymentMethodType,
+      basePriceCents: plan.monthly_price_cents,
+      discountCents: 0,
+      cardAdjustmentCents: 0,
+      totalCents: plan.monthly_price_cents,
+      displayTotal: formatUsdFromCents(plan.monthly_price_cents),
+      promoApplied: null,
+      accessCode: {
+        id: accessCodeValidation.accessCode.id,
+        label: accessCodeValidation.accessCode.label,
+        approvedPlanId: accessCodeValidation.accessCode.approvedPlanId,
+        allowedPaymentMethods: accessCodeValidation.accessCode.allowedPaymentMethods,
+        defaultPromoCode: accessCodeValidation.accessCode.defaultPromoCode,
+      },
+    };
   }
 
   const amounts = computeCheckoutAmounts({
     basePriceCents: plan.monthly_price_cents,
     paymentMethodType: input.paymentMethodType,
-    promoCode,
+    promoCode: promoValidation.promoCode,
   });
 
   return {
@@ -441,16 +661,19 @@ export async function calculateCheckoutPricing(input: {
     cardAdjustmentCents: amounts.cardAdjustmentCents,
     totalCents: amounts.totalCents,
     displayTotal: amounts.displayTotal,
-    promoApplied: promoCode
+    promoApplied: promoValidation.promoCode
       ? {
-          id: promoCode.id,
-          code: promoCode.code,
-          discountType: promoCode.discount_type,
+          id: promoValidation.promoCode.id,
+          code: promoValidation.promoCode.code,
+          discountType: promoValidation.promoCode.discount_type,
         }
       : null,
     accessCode: {
-      id: accessCode.id,
-      label: accessCode.label,
+      id: accessCodeValidation.accessCode.id,
+      label: accessCodeValidation.accessCode.label,
+      approvedPlanId: accessCodeValidation.accessCode.approvedPlanId,
+      allowedPaymentMethods: accessCodeValidation.accessCode.allowedPaymentMethods,
+      defaultPromoCode: accessCodeValidation.accessCode.defaultPromoCode,
     },
   };
 }
@@ -499,27 +722,6 @@ export async function createCheckoutEnrollmentDraft(
   return data as { id: string };
 }
 
-export async function updateCheckoutEnrollmentStripeFields(input: {
-  checkoutSessionId: string;
-  stripeCustomerId?: string | null;
-  stripeSubscriptionId?: string | null;
-  stripeInvoiceId?: string | null;
-}) {
-  const supabase = getSupabaseServiceClient() as any;
-  const { error } = await supabase
-    .from("checkout_enrollments")
-    .update({
-      stripe_customer_id: input.stripeCustomerId ?? undefined,
-      stripe_subscription_id: input.stripeSubscriptionId ?? undefined,
-      stripe_invoice_id: input.stripeInvoiceId ?? undefined,
-    })
-    .eq("stripe_checkout_session_id", input.checkoutSessionId);
-
-  if (error) {
-    throw error;
-  }
-}
-
 export async function applyCheckoutEnrollmentWebhookEvent(input: {
   checkoutSessionId?: string | null;
   stripeCustomerId?: string | null;
@@ -562,6 +764,7 @@ export async function seedCheckoutPlansIfMissing() {
       id: plan.id,
       name: plan.name,
       monthly_price_cents: plan.monthlyPriceCents,
+      monthly_hours: plan.monthlyHours,
       description: plan.description,
       included_features: [...plan.includedFeatures],
       sort_order: plan.sortOrder,
@@ -576,27 +779,78 @@ export async function seedCheckoutPlansIfMissing() {
 }
 
 export async function createCheckoutAccessCode(input: {
-  code: string;
+  code?: string;
   label: string;
   active: boolean;
   startsAt?: string;
   expiresAt?: string;
   maxUses?: number | null;
+  studentFirstName?: string;
+  studentLastName?: string;
+  parentContactName?: string;
+  parentContactEmail?: string;
+  approvedPlanId?: CheckoutPlanId | null;
+  allowedPaymentMethods?: CheckoutPaymentMethodType[];
+  internalNote?: string;
+  createdByEmail?: string;
+  defaultPromoCodeId?: string | null;
+  defaultPromoCodeCode?: string | null;
 }) {
+  const approvedPlanId = input.approvedPlanId && isCheckoutPlanId(input.approvedPlanId)
+    ? input.approvedPlanId
+    : null;
+  const generatedCode = input.code?.trim()
+    ? normalizeAccessCode(input.code)
+    : generateReadableAccessCode(approvedPlanId ?? "core");
   const supabase = getSupabaseServiceClient() as any;
-  const codeHash = createAccessCodeHash(input.code);
-  const { error } = await supabase.from("checkout_access_codes").insert({
-    code_hash: codeHash,
-    label: sanitizePlainText(input.label, { maxLength: 120 }),
-    active: input.active,
-    starts_at: input.startsAt || null,
-    expires_at: input.expiresAt || null,
-    max_uses: input.maxUses ?? null,
-  });
+  const codeHash = createAccessCodeHash(generatedCode);
+  const encryptedCode = encryptStoredAccessCode(generatedCode);
+  const { error, data } = await supabase
+    .from("checkout_access_codes")
+    .insert({
+      code_hash: codeHash,
+      encrypted_code: encryptedCode,
+      label: sanitizePlainText(input.label, { maxLength: 120 }),
+      active: input.active,
+      starts_at: input.startsAt || null,
+      expires_at: input.expiresAt || null,
+      max_uses: input.maxUses ?? null,
+      student_first_name: input.studentFirstName
+        ? sanitizePlainText(input.studentFirstName, { maxLength: 120 })
+        : null,
+      student_last_name: input.studentLastName
+        ? sanitizePlainText(input.studentLastName, { maxLength: 120 })
+        : null,
+      parent_contact_name: input.parentContactName
+        ? sanitizePlainText(input.parentContactName, { maxLength: 120 })
+        : null,
+      parent_contact_email: input.parentContactEmail
+        ? sanitizeEmailAddress(input.parentContactEmail)
+        : null,
+      approved_plan_id: approvedPlanId,
+      allowed_payment_methods: normalizeAllowedPaymentMethods(input.allowedPaymentMethods),
+      internal_note: input.internalNote
+        ? sanitizePlainText(input.internalNote, { maxLength: 500 })
+        : null,
+      created_by_email: input.createdByEmail
+        ? sanitizeEmailAddress(input.createdByEmail)
+        : null,
+      default_promo_code_id: input.defaultPromoCodeId ?? null,
+      default_promo_code_code: input.defaultPromoCodeCode
+        ? normalizePromoCode(input.defaultPromoCodeCode)
+        : null,
+    })
+    .select("id")
+    .single();
 
   if (error) {
     throw error;
   }
+
+  return {
+    id: String(data.id),
+    code: generatedCode,
+  };
 }
 
 export async function updateCheckoutAccessCode(input: {
@@ -606,7 +860,19 @@ export async function updateCheckoutAccessCode(input: {
   startsAt?: string;
   expiresAt?: string;
   maxUses?: number | null;
+  studentFirstName?: string;
+  studentLastName?: string;
+  parentContactName?: string;
+  parentContactEmail?: string;
+  approvedPlanId?: CheckoutPlanId | null;
+  allowedPaymentMethods?: CheckoutPaymentMethodType[];
+  internalNote?: string;
+  defaultPromoCodeId?: string | null;
+  defaultPromoCodeCode?: string | null;
 }) {
+  const approvedPlanId = input.approvedPlanId && isCheckoutPlanId(input.approvedPlanId)
+    ? input.approvedPlanId
+    : null;
   const supabase = getSupabaseServiceClient() as any;
   const { error } = await supabase
     .from("checkout_access_codes")
@@ -616,6 +882,27 @@ export async function updateCheckoutAccessCode(input: {
       starts_at: input.startsAt || null,
       expires_at: input.expiresAt || null,
       max_uses: input.maxUses ?? null,
+      student_first_name: input.studentFirstName
+        ? sanitizePlainText(input.studentFirstName, { maxLength: 120 })
+        : null,
+      student_last_name: input.studentLastName
+        ? sanitizePlainText(input.studentLastName, { maxLength: 120 })
+        : null,
+      parent_contact_name: input.parentContactName
+        ? sanitizePlainText(input.parentContactName, { maxLength: 120 })
+        : null,
+      parent_contact_email: input.parentContactEmail
+        ? sanitizeEmailAddress(input.parentContactEmail)
+        : null,
+      approved_plan_id: approvedPlanId,
+      allowed_payment_methods: normalizeAllowedPaymentMethods(input.allowedPaymentMethods),
+      internal_note: input.internalNote
+        ? sanitizePlainText(input.internalNote, { maxLength: 500 })
+        : null,
+      default_promo_code_id: input.defaultPromoCodeId ?? null,
+      default_promo_code_code: input.defaultPromoCodeCode
+        ? normalizePromoCode(input.defaultPromoCodeCode)
+        : null,
     })
     .eq("id", input.id);
 
@@ -628,6 +915,7 @@ export async function upsertCheckoutPlan(input: {
   id: string;
   name: string;
   monthlyPriceCents: number;
+  monthlyHours: number;
   description: string;
   includedFeatures: string[];
   sortOrder: number;
@@ -643,6 +931,7 @@ export async function upsertCheckoutPlan(input: {
     id: input.id,
     name: sanitizePlainText(input.name, { maxLength: 80 }),
     monthly_price_cents: Math.max(0, Math.round(input.monthlyPriceCents)),
+    monthly_hours: Math.max(0, Math.round(input.monthlyHours)),
     description: sanitizePlainText(input.description, { maxLength: 600 }),
     included_features: input.includedFeatures.map((feature) =>
       sanitizePlainText(feature, { maxLength: 160 }),
@@ -668,8 +957,16 @@ export async function upsertCheckoutPromoCode(input: {
   expiresAt?: string;
   maxRedemptions?: number | null;
   appliesToPlans?: string[];
+  canCombineWithAccessCode?: boolean;
+  assignedContactEmail?: string;
+  internalNote?: string;
+  stripeCouponId?: string;
+  stripePromotionCodeId?: string;
 }) {
   const supabase = getSupabaseServiceClient() as any;
+  const cleanedPlans = (input.appliesToPlans ?? []).filter((planId): planId is CheckoutPlanId =>
+    isCheckoutPlanId(planId),
+  );
   const payload = {
     ...(input.id ? { id: input.id } : {}),
     code: normalizePromoCode(input.code),
@@ -683,7 +980,20 @@ export async function upsertCheckoutPromoCode(input: {
     starts_at: input.startsAt || null,
     expires_at: input.expiresAt || null,
     max_redemptions: input.maxRedemptions ?? null,
-    applies_to_plans: input.appliesToPlans?.length ? input.appliesToPlans : null,
+    applies_to_plans: cleanedPlans.length ? cleanedPlans : null,
+    can_combine_with_access_code: input.canCombineWithAccessCode ?? true,
+    assigned_contact_email: input.assignedContactEmail
+      ? sanitizeEmailAddress(input.assignedContactEmail)
+      : null,
+    internal_note: input.internalNote
+      ? sanitizePlainText(input.internalNote, { maxLength: 500 })
+      : null,
+    stripe_coupon_id: input.stripeCouponId
+      ? sanitizePlainText(input.stripeCouponId, { maxLength: 120 })
+      : null,
+    stripe_promotion_code_id: input.stripePromotionCodeId
+      ? sanitizePlainText(input.stripePromotionCodeId, { maxLength: 120 })
+      : null,
   };
 
   const { error } = await supabase.from("checkout_promo_codes").upsert(payload);

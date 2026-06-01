@@ -12,6 +12,7 @@ import {
   env,
 } from "@/lib/env";
 import {
+  CHECKOUT_STRIPE_BRANDING,
   CLIENT_AGREEMENT_VERSION,
   PRIVACY_POLICY_VERSION,
   TERMS_VERSION,
@@ -139,8 +140,8 @@ export async function POST(request: Request) {
         interval: "month",
       },
       product_data: {
-        name: `Deebo Academy ${pricing.planName} plan`,
-        description: `${pricing.planName} monthly tutoring membership`,
+        name: `Deebo Academy ${pricing.planName}`,
+        description: `${pricing.planName} monthly support plan`,
       },
     },
   };
@@ -172,7 +173,19 @@ export async function POST(request: Request) {
       address: "auto",
     },
     allow_promotion_codes: false,
-  });
+    // Session-level branding keeps Checkout aligned even if account defaults drift.
+    branding_settings: {
+      display_name: CHECKOUT_STRIPE_BRANDING.displayName,
+      background_color: CHECKOUT_STRIPE_BRANDING.backgroundColor,
+      button_color: CHECKOUT_STRIPE_BRANDING.buttonColor,
+      font_family: CHECKOUT_STRIPE_BRANDING.fontFamily,
+      border_style: CHECKOUT_STRIPE_BRANDING.borderStyle,
+      logo: {
+        type: "url",
+        url: new URL(CHECKOUT_STRIPE_BRANDING.logoUrl, env.siteUrl).toString(),
+      },
+    },
+  } as Stripe.Checkout.SessionCreateParams);
 
   if (!session.client_secret) {
     return NextResponse.json(

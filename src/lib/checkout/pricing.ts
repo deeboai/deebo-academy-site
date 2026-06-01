@@ -1,6 +1,11 @@
-import { env } from "../env";
-import { formatUsdFromCents, type CheckoutPaymentMethodType } from "./constants";
-import type { CheckoutPromoCodeRecord } from "./service";
+import { env } from "../env.ts";
+import { formatUsdFromCents, type CheckoutPaymentMethodType } from "./constants.ts";
+
+type CheckoutPromoAmountInput = {
+  discount_type: "percentage" | "fixed_amount";
+  percentage_off: number | null;
+  amount_off_cents: number | null;
+};
 
 function getCardPriceAdjustmentRate() {
   const parsedValue = Number(env.cardPriceAdjustmentPercent);
@@ -15,7 +20,7 @@ function getCardPriceAdjustmentRate() {
 export function computeCheckoutAmounts(input: {
   basePriceCents: number;
   paymentMethodType: CheckoutPaymentMethodType;
-  promoCode: Pick<CheckoutPromoCodeRecord, "discount_type" | "percentage_off" | "amount_off_cents"> | null;
+  promoCode: CheckoutPromoAmountInput | null;
 }) {
   const basePriceCents = Math.max(0, Math.round(input.basePriceCents));
   let discountCents = 0;
