@@ -158,6 +158,11 @@ function normalizePromoCode(value: string) {
   return sanitizePlainText(value, { maxLength: 80 }).toUpperCase();
 }
 
+function normalizePromoCodeLookup(value: string) {
+  // The database index stores promo lookup values in lowercase even though the visible code stays uppercase.
+  return normalizePromoCode(value).toLowerCase();
+}
+
 function parseIsoDate(value: string | null) {
   return value ? new Date(value).getTime() : null;
 }
@@ -416,6 +421,7 @@ async function getValidatedPromoCode(input: {
   defaultPromoCodeId?: string | null;
 }) {
   const normalizedPromoCode = normalizePromoCode(input.rawPromoCode);
+  const normalizedPromoCodeLookup = normalizePromoCodeLookup(input.rawPromoCode);
   let promoCode: CheckoutPromoCodeRecord | null = null;
 
   if (normalizedPromoCode) {
@@ -425,7 +431,7 @@ async function getValidatedPromoCode(input: {
       .select(
         "id, code, discount_type, percentage_off, amount_off_cents, active, starts_at, expires_at, max_redemptions, redemption_count, applies_to_plans, can_combine_with_access_code, assigned_contact_email, internal_note, stripe_coupon_id, stripe_promotion_code_id, created_at, updated_at",
       )
-      .eq("normalized_code", normalizedPromoCode)
+      .eq("normalized_code", normalizedPromoCodeLookup)
       .maybeSingle();
 
     if (error) {
@@ -513,23 +519,34 @@ export async function validateCheckoutAccessCode(rawAccessCode: string): Promise
     };
   }
 
+  const validatedRecord = record;
+
+  if (!validatedRecord) {
+    return {
+      valid: false,
+      error: GENERIC_ACCESS_CODE_ERROR,
+      accessCode: null,
+      eligiblePlans: [],
+    };
+  }
+
   const activePlans = await listActiveCheckoutPlans();
-  const eligiblePlans = getEligiblePlansForAccessCode(record, activePlans);
+  const eligiblePlans = getEligiblePlansForAccessCode(validatedRecord, activePlans);
 
   return {
     valid: true,
     error: null,
     accessCode: {
-      id: record!.id,
-      label: record!.label,
-      code: safeDecryptAccessCodeValue(record!.encrypted_code),
-      studentFirstName: record!.student_first_name,
-      studentLastName: record!.student_last_name,
-      parentContactName: record!.parent_contact_name,
-      parentContactEmail: record!.parent_contact_email,
-      approvedPlanId: record!.approved_plan_id,
-      allowedPaymentMethods: normalizeAllowedPaymentMethods(record!.allowed_payment_methods),
-      defaultPromoCode: record!.default_promo_code_code,
+      id: validatedRecord.id,
+      label: validatedRecord.label,
+      code: safeDecryptAccessCodeValue(validatedRecord.encrypted_code),
+      studentFirstName: validatedRecord.student_first_name,
+      studentLastName: validatedRecord.student_last_name,
+      parentContactName: validatedRecord.parent_contact_name,
+      parentContactEmail: validatedRecord.parent_contact_email,
+      approvedPlanId: validatedRecord.approved_plan_id,
+      allowedPaymentMethods: normalizeAllowedPaymentMethods(validatedRecord.allowed_payment_methods),
+      defaultPromoCode: validatedRecord.default_promo_code_code,
     },
     eligiblePlans,
   };

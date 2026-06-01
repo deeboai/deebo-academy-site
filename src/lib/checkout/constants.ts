@@ -178,7 +178,6 @@ export const CHECKOUT_STRIPE_BRANDING = {
   buttonColor: "#1d4ed8",
   fontFamily: "inter",
   borderStyle: "rounded" as const,
-  logoUrl: "/branding/deebo-academy-logo-white-on-black.png",
 };
 
 export function isCheckoutPaymentMethodType(

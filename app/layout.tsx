@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 
 import "./globals.css";
 
-import { SiteChrome } from "@/components/site-chrome";
 import { ThemeScript } from "@/components/theme/theme-script";
 
 export const metadata: Metadata = {
@@ -55,7 +54,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <body>
         <ThemeScript />
-        <SiteChrome>{children}</SiteChrome>
+        {children}
       </body>
     </html>
   );

@@ -7,11 +7,12 @@
     "node": ">=20.9 <25"
   },
   "scripts": {
+    "prebuild": "node ./scripts/check-node-version.mjs",
     "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
-    "test": "node --test --experimental-strip-types tests/**/*.test.ts"
+    "test": "node --loader ./scripts/ts-extensionless-loader.mjs --test --experimental-strip-types tests/**/*.test.ts"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^6.5.0",

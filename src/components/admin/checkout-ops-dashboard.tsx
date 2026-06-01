@@ -94,6 +94,7 @@ type StatusTone = "active" | "warning" | "muted" | "danger";
 type AccessCodeStatus = "active" | "used" | "expired" | "disabled";
 type PromoCodeStatus = "active" | "expired" | "disabled" | "maxed";
 type AccessPaymentPolicy = "both" | "ach" | "card";
+type AccessCodeCatalogType = "generated" | "system";
 
 type NoticeState =
   | {
@@ -308,18 +309,28 @@ function getStatusTone(status: AccessCodeStatus | PromoCodeStatus): StatusTone {
 
 function getStatusClasses(tone: StatusTone) {
   if (tone === "active") {
-    return "border-emerald-500/25 bg-emerald-500/10 text-emerald-200";
+    return "status-success";
   }
 
   if (tone === "warning") {
-    return "border-amber-500/25 bg-amber-500/10 text-amber-200";
+    return "status-warning";
   }
 
   if (tone === "danger") {
-    return "border-rose-500/25 bg-rose-500/10 text-rose-200";
+    return "status-danger";
   }
 
-  return "border-border/70 bg-background/70 text-muted-foreground";
+  return "status-neutral";
+}
+
+function getAccessCodeCatalogType(accessCode: AdminAccessCode): AccessCodeCatalogType {
+  if (!accessCode.code) {
+    return "system";
+  }
+
+  return /^DEEBO-(LIGHT|CORE|INTENSIVE)-[A-Z2-9]{4}$/.test(accessCode.code)
+    ? "generated"
+    : "system";
 }
 
 function formatPromoValue(promoCode: AdminPromoCode) {
@@ -490,6 +501,7 @@ export function CheckoutOpsDashboard({
   const [accessUsageFilter, setAccessUsageFilter] = useState<"all" | "unused" | "used">(
     "all",
   );
+  const [accessTypeFilter, setAccessTypeFilter] = useState<"all" | AccessCodeCatalogType>("all");
 
   const [promoSearch, setPromoSearch] = useState("");
   const [promoStatusFilter, setPromoStatusFilter] = useState<"all" | PromoCodeStatus>("all");
@@ -549,8 +561,18 @@ export function CheckoutOpsDashboard({
         accessUsageFilter === "all" ||
         (accessUsageFilter === "used" && isUsed) ||
         (accessUsageFilter === "unused" && !isUsed);
+      const matchesType =
+        accessTypeFilter === "all" ||
+        getAccessCodeCatalogType(accessCode) === accessTypeFilter;
 
-      return hasQuery && matchesStatus && matchesPlan && matchesExpiration && matchesUsage;
+      return (
+        hasQuery &&
+        matchesStatus &&
+        matchesPlan &&
+        matchesExpiration &&
+        matchesUsage &&
+        matchesType
+      );
     });
   }, [
     accessCodes,
@@ -558,8 +580,14 @@ export function CheckoutOpsDashboard({
     accessPlanFilter,
     accessSearch,
     accessStatusFilter,
+    accessTypeFilter,
     accessUsageFilter,
   ]);
+
+  const legacyAccessCodeCount = useMemo(
+    () => accessCodes.filter((accessCode) => getAccessCodeCatalogType(accessCode) === "system").length,
+    [accessCodes],
+  );
 
   const filteredPromoCodes = useMemo(() => {
     const query = promoSearch.trim().toLowerCase();
@@ -642,7 +670,13 @@ export function CheckoutOpsDashboard({
       params.set("promo", accessCode.default_promo_code_code);
     }
 
-    return `/checkout?${params.toString()}`;
+    const checkoutPath = `/checkout?${params.toString()}`;
+
+    if (typeof window === "undefined") {
+      return checkoutPath;
+    }
+
+    return new URL(checkoutPath, window.location.origin).toString();
   }
 
   function openPlanModal(plan: AdminPlan) {
@@ -828,9 +862,7 @@ export function CheckoutOpsDashboard({
       {notice ? (
         <div
           className={`rounded-[1.35rem] border px-5 py-4 text-sm ${
-            notice.tone === "success"
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
-              : "border-rose-500/30 bg-rose-500/10 text-rose-100"
+            notice.tone === "success" ? "status-success" : "status-danger"
           }`}
         >
           {notice.message}
@@ -891,7 +923,7 @@ export function CheckoutOpsDashboard({
 
       <SectionCard
         title="Enrollment access codes"
-        description="Generate readable approval codes, tie them to the approved plan, and keep family notes private to the admin team."
+        description="Generate readable approval codes, tie them to the approved plan, and manage both per-family codes and legacy system codes in one place."
         action={
           <button
             type="button"
@@ -903,7 +935,14 @@ export function CheckoutOpsDashboard({
           </button>
         }
       >
-        <div className="grid gap-3 lg:grid-cols-5">
+        {legacyAccessCodeCount > 0 ? (
+          <div className="status-warning rounded-[1.25rem] border px-4 py-3 text-sm">
+            {legacyAccessCodeCount} legacy or system access code
+            {legacyAccessCodeCount === 1 ? " is" : "s are"} included in this list.
+          </div>
+        ) : null}
+
+        <div className="grid gap-3 lg:grid-cols-6">
           <label className="grid gap-2 text-sm font-medium text-foreground lg:col-span-2">
             Search
             <div className="relative">
@@ -963,6 +1002,20 @@ export function CheckoutOpsDashboard({
               <option value="used">Used</option>
             </select>
           </label>
+          <label className="grid gap-2 text-sm font-medium text-foreground">
+            Code type
+            <select
+              value={accessTypeFilter}
+              onChange={(event) =>
+                setAccessTypeFilter(event.target.value as "all" | AccessCodeCatalogType)
+              }
+              className="rounded-xl border border-border/70 bg-background/70 px-4 py-3 text-sm text-foreground"
+            >
+              <option value="all">All code types</option>
+              <option value="generated">Generated</option>
+              <option value="system">Legacy or system</option>
+            </select>
+          </label>
         </div>
 
         <div className="mt-3 grid gap-3 lg:grid-cols-5">
@@ -999,111 +1052,134 @@ export function CheckoutOpsDashboard({
               </tr>
             </thead>
             <tbody>
-              {filteredAccessCodes.map((accessCode, index) => {
-                const status = getAccessCodeStatus(accessCode);
+              {filteredAccessCodes.length ? (
+                filteredAccessCodes.map((accessCode, index) => {
+                  const status = getAccessCodeStatus(accessCode);
+                  const catalogType = getAccessCodeCatalogType(accessCode);
 
-                return (
-                  <tr
-                    key={accessCode.id}
-                    className={index % 2 === 0 ? "bg-card/70" : "bg-background/55"}
+                  return (
+                    <tr
+                      key={accessCode.id}
+                      className={index % 2 === 0 ? "bg-card/70" : "bg-background/55"}
+                    >
+                      <td className="px-4 py-4 align-top">
+                        <div className="font-medium text-foreground">
+                          {accessCode.code ?? "Stored without readable code"}
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <StatusPill
+                            label={catalogType === "generated" ? "Generated" : "Legacy / system"}
+                            tone={catalogType === "generated" ? "muted" : "warning"}
+                          />
+                        </div>
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          {accessCode.label ?? "No internal label"}
+                        </div>
+                        {accessCode.internal_note ? (
+                          <div className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                            {accessCode.internal_note}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-4 align-top text-sm">
+                        <div className="font-medium text-foreground">
+                          {[accessCode.student_first_name, accessCode.student_last_name]
+                            .filter(Boolean)
+                            .join(" ") || "Student name not added"}
+                        </div>
+                        <div className="mt-1 text-muted-foreground">
+                          {accessCode.parent_contact_name ?? "No parent name"}
+                        </div>
+                        <div className="text-muted-foreground">
+                          {accessCode.parent_contact_email ?? "No contact email"}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 align-top text-sm text-foreground">
+                        <div>{getPlanLabel(accessCode.approved_plan_id, plans)}</div>
+                        <div className="mt-1 text-muted-foreground">
+                          {getAllowedPaymentPolicy(accessCode.allowed_payment_methods) === "both"
+                            ? "ACH and card"
+                            : getAllowedPaymentPolicy(accessCode.allowed_payment_methods) === "ach"
+                              ? "ACH only"
+                              : "Card only"}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 align-top">
+                        <StatusPill label={status} tone={getStatusTone(status)} />
+                      </td>
+                      <td className="px-4 py-4 align-top text-sm text-muted-foreground">
+                        {formatDate(accessCode.expires_at)}
+                      </td>
+                      <td className="px-4 py-4 align-top text-sm text-muted-foreground">
+                        {accessCode.use_count}
+                        {accessCode.max_uses !== null ? ` / ${accessCode.max_uses}` : " / unlimited"}
+                      </td>
+                      <td className="px-4 py-4 align-top text-sm text-muted-foreground">
+                        <div>{formatDate(accessCode.created_at)}</div>
+                        <div className="mt-1 text-xs">
+                          {accessCode.created_by_email ?? "Admin account"}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 align-top text-sm text-muted-foreground">
+                        {formatDateTime(accessCode.last_used_at)}
+                      </td>
+                      <td className="px-4 py-4 align-top">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            className="secondary-button px-3 py-2 text-xs"
+                            disabled={!accessCode.code}
+                            onClick={() =>
+                              accessCode.code ? handleCopy(accessCode.code, "Access code") : undefined
+                            }
+                          >
+                            <Copy className="mr-1.5 h-3.5 w-3.5" />
+                            Copy code
+                          </button>
+                          <button
+                            type="button"
+                            className="secondary-button px-3 py-2 text-xs"
+                            disabled={!accessCode.code}
+                            onClick={() =>
+                              accessCode.code
+                                ? handleCopy(buildCheckoutLink(accessCode), "Checkout link")
+                                : undefined
+                            }
+                          >
+                            <ArrowUpRight className="mr-1.5 h-3.5 w-3.5" />
+                            Copy link
+                          </button>
+                          <button
+                            type="button"
+                            className="secondary-button px-3 py-2 text-xs"
+                            onClick={() => openEditAccessCodeModal(accessCode)}
+                          >
+                            <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                            Manage
+                          </button>
+                          <button
+                            type="button"
+                            className="secondary-button px-3 py-2 text-xs"
+                            disabled={!accessCode.active}
+                            onClick={() => disableAccessCode(accessCode)}
+                          >
+                            Disable
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr className="bg-background/55">
+                  <td
+                    colSpan={9}
+                    className="px-4 py-8 text-center text-sm text-muted-foreground"
                   >
-                    <td className="px-4 py-4 align-top">
-                      <div className="font-medium text-foreground">
-                        {accessCode.code ?? "Stored without readable code"}
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {accessCode.label ?? "No internal label"}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 align-top text-sm">
-                      <div className="font-medium text-foreground">
-                        {[accessCode.student_first_name, accessCode.student_last_name]
-                          .filter(Boolean)
-                          .join(" ") || "Student name not added"}
-                      </div>
-                      <div className="mt-1 text-muted-foreground">
-                        {accessCode.parent_contact_name ?? "No parent name"}
-                      </div>
-                      <div className="text-muted-foreground">
-                        {accessCode.parent_contact_email ?? "No contact email"}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 align-top text-sm text-foreground">
-                      <div>{getPlanLabel(accessCode.approved_plan_id, plans)}</div>
-                      <div className="mt-1 text-muted-foreground">
-                        {getAllowedPaymentPolicy(accessCode.allowed_payment_methods) === "both"
-                          ? "ACH and card"
-                          : getAllowedPaymentPolicy(accessCode.allowed_payment_methods) === "ach"
-                            ? "ACH only"
-                            : "Card only"}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 align-top">
-                      <StatusPill label={status} tone={getStatusTone(status)} />
-                    </td>
-                    <td className="px-4 py-4 align-top text-sm text-muted-foreground">
-                      {formatDate(accessCode.expires_at)}
-                    </td>
-                    <td className="px-4 py-4 align-top text-sm text-muted-foreground">
-                      {accessCode.use_count}
-                      {accessCode.max_uses !== null ? ` / ${accessCode.max_uses}` : " / unlimited"}
-                    </td>
-                    <td className="px-4 py-4 align-top text-sm text-muted-foreground">
-                      <div>{formatDate(accessCode.created_at)}</div>
-                      <div className="mt-1 text-xs">
-                        {accessCode.created_by_email ?? "Admin account"}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 align-top text-sm text-muted-foreground">
-                      {formatDateTime(accessCode.last_used_at)}
-                    </td>
-                    <td className="px-4 py-4 align-top">
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          className="secondary-button px-3 py-2 text-xs"
-                          disabled={!accessCode.code}
-                          onClick={() =>
-                            accessCode.code ? handleCopy(accessCode.code, "Access code") : undefined
-                          }
-                        >
-                          <Copy className="mr-1.5 h-3.5 w-3.5" />
-                          Copy code
-                        </button>
-                        <button
-                          type="button"
-                          className="secondary-button px-3 py-2 text-xs"
-                          disabled={!accessCode.code}
-                          onClick={() =>
-                            accessCode.code
-                              ? handleCopy(buildCheckoutLink(accessCode), "Checkout link")
-                              : undefined
-                          }
-                        >
-                          <ArrowUpRight className="mr-1.5 h-3.5 w-3.5" />
-                          Copy link
-                        </button>
-                        <button
-                          type="button"
-                          className="secondary-button px-3 py-2 text-xs"
-                          onClick={() => openEditAccessCodeModal(accessCode)}
-                        >
-                          <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                          View or edit
-                        </button>
-                        <button
-                          type="button"
-                          className="secondary-button px-3 py-2 text-xs"
-                          disabled={!accessCode.active}
-                          onClick={() => disableAccessCode(accessCode)}
-                        >
-                          Disable
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                    No access codes match the current filters.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -1199,6 +1275,11 @@ export function CheckoutOpsDashboard({
                       <div className="mt-1 text-xs text-muted-foreground">
                         {promoCode.assigned_contact_email ?? "No assigned family"}
                       </div>
+                      {promoCode.internal_note ? (
+                        <div className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                          {promoCode.internal_note}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-4 py-4 align-top text-sm">
                       <div className="font-medium text-foreground">
