@@ -1,4 +1,4 @@
-import { env } from "../env.ts";
+import { env } from "../env";
 import { formatUsdFromCents, type CheckoutPaymentMethodType } from "./constants";
 
 type CheckoutPromoAmountInput = {
