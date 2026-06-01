@@ -265,53 +265,54 @@ export function CheckoutFlow({
       setInlineError(result.error ?? "This access code is invalid.");
       return;
     }
+const accessCodeDetails = result.access_code;
 
-    setValidatedAccessCode(result.access_code);
-    setEligiblePlans(result.eligible_plans);
-    setInlineError("");
-    setCheckoutClientSecret("");
-    setCalculation(null);
+setValidatedAccessCode(accessCodeDetails);
+setEligiblePlans(result.eligible_plans);
+setInlineError("");
+setCheckoutClientSecret("");
+setCalculation(null);
 
-    if (result.access_code.parentContactName) {
-      setParentName((current) => current || result.access_code.parentContactName || "");
-    }
+if (accessCodeDetails.parentContactName) {
+  setParentName((current) => current || accessCodeDetails.parentContactName || "");
+}
 
-    if (result.access_code.parentContactEmail) {
-      setParentEmail((current) => current || result.access_code.parentContactEmail || "");
-    }
+if (accessCodeDetails.parentContactEmail) {
+  setParentEmail((current) => current || accessCodeDetails.parentContactEmail || "");
+}
 
-    if (result.access_code.studentFirstName || result.access_code.studentLastName) {
-      const nameParts = [
-        result.access_code.studentFirstName,
-        result.access_code.studentLastName,
-      ].filter(Boolean);
-      setStudentName((current) => current || nameParts.join(" "));
-    }
+if (accessCodeDetails.studentFirstName || accessCodeDetails.studentLastName) {
+  const nameParts = [
+    accessCodeDetails.studentFirstName,
+    accessCodeDetails.studentLastName,
+  ].filter(Boolean);
+  setStudentName((current) => current || nameParts.join(" "));
+}
 
-    if (!promoCode.trim() && result.access_code.defaultPromoCode) {
-      setPromoCode(result.access_code.defaultPromoCode);
-    }
+if (!promoCode.trim() && accessCodeDetails.defaultPromoCode) {
+  setPromoCode(accessCodeDetails.defaultPromoCode);
+}
 
-    const eligiblePlanIds = new Set(result.eligible_plans.map((plan) => plan.id));
-    const requestedPlanId =
-      selectedPlanId && eligiblePlanIds.has(selectedPlanId) ? selectedPlanId : "";
-    const fallbackPlanId =
-      result.access_code.approvedPlanId ??
-      result.eligible_plans[0]?.id ??
-      "";
-    const nextPlanId = requestedPlanId || fallbackPlanId;
-    setSelectedPlanId(nextPlanId);
+const eligiblePlanIds = new Set(result.eligible_plans.map((plan) => plan.id));
+const requestedPlanId =
+  selectedPlanId && eligiblePlanIds.has(selectedPlanId) ? selectedPlanId : "";
+const fallbackPlanId =
+  accessCodeDetails.approvedPlanId ??
+  result.eligible_plans[0]?.id ??
+  "";
+const nextPlanId = requestedPlanId || fallbackPlanId;
+setSelectedPlanId(nextPlanId);
 
-    const onlyOnePaymentMethod = result.access_code.allowedPaymentMethods.length === 1
-      ? result.access_code.allowedPaymentMethods[0]
-      : "";
-    setPaymentMethodType((current) => {
-      if (current && result.access_code.allowedPaymentMethods.includes(current)) {
-        return current;
-      }
+const onlyOnePaymentMethod = accessCodeDetails.allowedPaymentMethods.length === 1
+  ? accessCodeDetails.allowedPaymentMethods[0]
+  : "";
+setPaymentMethodType((current) => {
+  if (current && accessCodeDetails.allowedPaymentMethods.includes(current)) {
+    return current;
+  }
 
-      return onlyOnePaymentMethod;
-    });
+  return onlyOnePaymentMethod;
+});
 
     if (isAutoRun && nextPlanId) {
       setCurrentStep(onlyOnePaymentMethod ? 4 : 2);
