@@ -146,7 +146,7 @@ export async function POST(request: Request) {
   };
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
-    ui_mode: "embedded",
+    ui_mode: "embedded_page",
     return_url: `${env.siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
     redirect_on_completion: "always",
     customer: stripeCustomer.id,
