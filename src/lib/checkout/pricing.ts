@@ -1,5 +1,5 @@
 import { env } from "../env.ts";
-import { formatUsdFromCents, type CheckoutPaymentMethodType } from "./constants.ts";
+import { formatUsdFromCents, type CheckoutPaymentMethodType } from "./constants";
 
 type CheckoutPromoAmountInput = {
   discount_type: "percentage" | "fixed_amount";
