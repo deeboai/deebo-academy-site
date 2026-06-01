@@ -12,7 +12,7 @@ import {
 test("computeCheckoutAmounts applies percentage promo before the card adjustment", () => {
   assert.deepEqual(
     computeCheckoutAmounts({
-      basePriceCents: 29900,
+      basePriceCents: 42900,
       paymentMethodType: "card",
       promoCode: {
         discount_type: "percentage",
@@ -21,11 +21,11 @@ test("computeCheckoutAmounts applies percentage promo before the card adjustment
       },
     }),
     {
-      basePriceCents: 29900,
-      discountCents: 7475,
-      cardAdjustmentCents: 673,
-      totalCents: 23098,
-      displayTotal: "$230.98",
+      basePriceCents: 42900,
+      discountCents: 10725,
+      cardAdjustmentCents: 965,
+      totalCents: 33140,
+      displayTotal: "$331.40",
     },
   );
 });
@@ -33,7 +33,7 @@ test("computeCheckoutAmounts applies percentage promo before the card adjustment
 test("computeCheckoutAmounts keeps ACH pricing free from the card adjustment", () => {
   assert.deepEqual(
     computeCheckoutAmounts({
-      basePriceCents: 29900,
+      basePriceCents: 42900,
       paymentMethodType: "ach",
       promoCode: {
         discount_type: "percentage",
@@ -42,11 +42,11 @@ test("computeCheckoutAmounts keeps ACH pricing free from the card adjustment", (
       },
     }),
     {
-      basePriceCents: 29900,
-      discountCents: 7475,
+      basePriceCents: 42900,
+      discountCents: 10725,
       cardAdjustmentCents: 0,
-      totalCents: 22425,
-      displayTotal: "$224.25",
+      totalCents: 32175,
+      displayTotal: "$321.75",
     },
   );
 });
@@ -54,7 +54,7 @@ test("computeCheckoutAmounts keeps ACH pricing free from the card adjustment", (
 test("computeCheckoutAmounts clamps fixed discounts so totals cannot go below zero", () => {
   assert.deepEqual(
     computeCheckoutAmounts({
-      basePriceCents: 14900,
+      basePriceCents: 22900,
       paymentMethodType: "card",
       promoCode: {
         discount_type: "fixed_amount",
@@ -63,8 +63,8 @@ test("computeCheckoutAmounts clamps fixed discounts so totals cannot go below ze
       },
     }),
     {
-      basePriceCents: 14900,
-      discountCents: 14900,
+      basePriceCents: 22900,
+      discountCents: 22900,
       cardAdjustmentCents: 0,
       totalCents: 0,
       displayTotal: "$0.00",

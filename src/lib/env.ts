@@ -10,6 +10,7 @@ const stripeSecretKey = process.env.STRIPE_SECRET_KEY ?? "";
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? "";
 const publicStripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
 const cardPriceAdjustmentPercent = process.env.CARD_PRICE_ADJUSTMENT_PERCENT ?? "3";
+const checkoutCodeEncryptionKey = process.env.CHECKOUT_CODE_ENCRYPTION_KEY ?? "";
 const googleClientId = process.env.GOOGLE_CLIENT_ID ?? "";
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET ?? "";
 const googleCalendarId = process.env.GOOGLE_CALENDAR_ID ?? "";
@@ -28,6 +29,7 @@ export const env = {
   stripeWebhookSecret,
   publicStripePublishableKey,
   cardPriceAdjustmentPercent,
+  checkoutCodeEncryptionKey,
   googleClientId,
   googleClientSecret,
   googleCalendarId,

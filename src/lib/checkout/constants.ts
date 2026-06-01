@@ -1,7 +1,7 @@
 export const CHECKOUT_PAYMENT_METHOD_TYPES = ["ach", "card"] as const;
 export type CheckoutPaymentMethodType = (typeof CHECKOUT_PAYMENT_METHOD_TYPES)[number];
 
-export const CHECKOUT_PLAN_IDS = ["light", "support", "intensive"] as const;
+export const CHECKOUT_PLAN_IDS = ["light", "core", "intensive"] as const;
 export type CheckoutPlanId = (typeof CHECKOUT_PLAN_IDS)[number];
 
 export const CLIENT_AGREEMENT_VERSION = "2026-05-31";
@@ -13,57 +13,173 @@ export type CheckoutPlanSeed = {
   id: CheckoutPlanId;
   name: string;
   monthlyPriceCents: number;
+  monthlyHours: number;
   description: string;
   includedFeatures: readonly string[];
   sortOrder: number;
   badge?: string;
 };
 
-// Keep the public marketing plan copy aligned with the seeded database records.
+export type CheckoutComparisonValue = "included" | "not_included" | string;
+
+export type CheckoutComparisonRow = {
+  feature: string;
+  values: Record<CheckoutPlanId, CheckoutComparisonValue>;
+};
+
+// These plan records drive both public pricing and the seeded database defaults.
 export const DEFAULT_CHECKOUT_PLANS: readonly CheckoutPlanSeed[] = [
   {
     id: "light",
-    name: "Light",
-    monthlyPriceCents: 14900,
-    description: "Steady weekly support for students who need consistent help without the heaviest schedule.",
+    name: "Light Support",
+    monthlyPriceCents: 22900,
+    monthlyHours: 4,
+    description: "For students who need steady weekly help without a heavier schedule.",
     includedFeatures: [
-      "1 live session each week",
-      "Session notes after each meeting",
-      "Assigned practice between sessions",
-      "Email follow-up for parent coordination",
+      "1–2 hour session blocks",
+      "Session notes after each session",
+      "Assigned homework or practice",
+      "Extra student questions between sessions",
+      "Best for light weekly support",
     ],
     sortOrder: 10,
   },
   {
-    id: "support",
-    name: "Support",
-    monthlyPriceCents: 29900,
-    description: "The standard plan for recurring tutoring, test prep, and ongoing academic repair.",
+    id: "core",
+    name: "Core Support",
+    monthlyPriceCents: 42900,
+    monthlyHours: 8,
+    description: "For students who need consistent support, test preparation, or help catching up.",
     includedFeatures: [
-      "Up to 2 live sessions each week",
-      "Session notes and practice after each meeting",
-      "Progress check-ins for families",
-      "Priority scheduling compared with Light",
+      "1–2 hour session blocks",
+      "Session notes after each session",
+      "Assigned homework or practice",
+      "Extra student questions between sessions",
+      "Weekly progress summary",
+      "Priority scheduling",
     ],
     sortOrder: 20,
     badge: "Recommended",
   },
   {
     id: "intensive",
-    name: "Intensive",
-    monthlyPriceCents: 59900,
-    description: "Higher-frequency support for major catch-up periods, demanding courses, or exam-heavy stretches.",
+    name: "Intensive Support",
+    monthlyPriceCents: 62900,
+    monthlyHours: 12,
+    description: "For demanding courses, catch-up periods, or exam-heavy months.",
     includedFeatures: [
-      "Multiple weekly sessions for heavier support",
-      "Detailed progress tracking",
-      "Priority scheduling for urgent academic needs",
-      "Planning support for exams and major deadlines",
+      "1–2 hour session blocks",
+      "Session notes after each session",
+      "Assigned homework or practice",
+      "Extra student questions between sessions",
+      "Deeper exam planning",
+      "Highest scheduling priority",
     ],
     sortOrder: 30,
   },
 ] as const;
 
 export const DEFAULT_FOUNDER_PROMO_CODE = "DEEBOFOUNDER25";
+
+export const CHECKOUT_COMPARISON_ROWS: readonly CheckoutComparisonRow[] = [
+  {
+    feature: "Monthly tutoring hours",
+    values: {
+      light: "4 hours",
+      core: "8 hours",
+      intensive: "12 hours",
+    },
+  },
+  {
+    feature: "Session length",
+    values: {
+      light: "1–2 hour blocks",
+      core: "1–2 hour blocks",
+      intensive: "1–2 hour blocks",
+    },
+  },
+  {
+    feature: "Intake-based support plan",
+    values: {
+      light: "included",
+      core: "included",
+      intensive: "included",
+    },
+  },
+  {
+    feature: "Session notes after each session",
+    values: {
+      light: "included",
+      core: "included",
+      intensive: "included",
+    },
+  },
+  {
+    feature: "Assigned homework/practice",
+    values: {
+      light: "included",
+      core: "included",
+      intensive: "included",
+    },
+  },
+  {
+    feature: "Extra student questions between sessions",
+    values: {
+      light: "included",
+      core: "included",
+      intensive: "included",
+    },
+  },
+  {
+    feature: "Weekly progress summary",
+    values: {
+      light: "not_included",
+      core: "included",
+      intensive: "included",
+    },
+  },
+  {
+    feature: "Priority scheduling",
+    values: {
+      light: "Standard",
+      core: "Priority",
+      intensive: "Highest",
+    },
+  },
+  {
+    feature: "Exam planning",
+    values: {
+      light: "Basic",
+      core: "Included",
+      intensive: "Deeper support",
+    },
+  },
+  {
+    feature: "Weak-area repair",
+    values: {
+      light: "Basic",
+      core: "Included",
+      intensive: "Intensive",
+    },
+  },
+  {
+    feature: "Best fit",
+    values: {
+      light: "Light weekly help",
+      core: "Consistent academic support",
+      intensive: "Catch-up or exam-heavy support",
+    },
+  },
+] as const;
+
+export const CHECKOUT_STRIPE_BRANDING = {
+  displayName: "Deebo Academy",
+  backgroundColor: "#f5f8fc",
+  buttonColor: "#1d4ed8",
+  fontFamily: "inter",
+  borderStyle: "rounded" as const,
+  logoUrl: "/branding/deebo-academy-logo-white-on-black.png",
+};
 
 export function isCheckoutPaymentMethodType(
   value: string,
@@ -80,4 +196,14 @@ export function formatUsdFromCents(value: number) {
     style: "currency",
     currency: "USD",
   }).format(value / 100);
+}
+
+export function getDefaultCheckoutPlanSeed(planId: CheckoutPlanId) {
+  const plan = DEFAULT_CHECKOUT_PLANS.find((entry) => entry.id === planId);
+
+  if (!plan) {
+    throw new Error(`Unknown checkout plan: ${planId}`);
+  }
+
+  return plan;
 }
