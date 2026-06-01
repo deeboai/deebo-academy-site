@@ -282,7 +282,10 @@ async function getValidatedPromoCode(input: {
   const normalizedPromoCode = normalizePromoCode(input.rawPromoCode);
 
   if (!normalizedPromoCode) {
-    return null;
+    return {
+      promoCode: null,
+      error: null,
+    };
   }
 
   const supabase = getSupabaseServiceClient() as any;
