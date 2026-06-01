@@ -14,7 +14,7 @@ export function getStripeServerClient() {
   if (!stripeClient) {
     // Keep the server-side Stripe client pinned so Academy payment flows behave consistently.
     stripeClient = new Stripe(env.stripeSecretKey, {
-      apiVersion: "2026-02-25.clover",
+      apiVersion: "2026-05-27.dahlia",
     });
   }
 
