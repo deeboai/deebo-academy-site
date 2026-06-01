@@ -1,6 +1,6 @@
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
-import { sanitizePlainText } from "../input-security.ts";
+import { sanitizePlainText } from "../input-security";
 
 const ACCESS_CODE_HASH_PREFIX = "scrypt";
 const ACCESS_CODE_HASH_KEY_LENGTH = 64;

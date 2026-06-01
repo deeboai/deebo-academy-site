@@ -1,6 +1,6 @@
-import { env } from "../env.ts";
-import { formatUsdFromCents, type CheckoutPaymentMethodType } from "./constants.ts";
-import type { CheckoutPromoCodeRecord } from "./service.ts";
+import { env } from "../env";
+import { formatUsdFromCents, type CheckoutPaymentMethodType } from "./constants";
+import type { CheckoutPromoCodeRecord } from "./service";
 
 function getCardPriceAdjustmentRate() {
   const parsedValue = Number(env.cardPriceAdjustmentPercent);

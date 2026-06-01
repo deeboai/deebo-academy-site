@@ -8,3 +8,5 @@ node_modules
 admin_readme.md
 npm-debug.log*
 .DS_Store
+.next*
+*.tsbuildinfo
