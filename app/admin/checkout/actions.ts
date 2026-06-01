@@ -32,11 +32,13 @@ function parseOptionalInteger(value: number | null | undefined) {
   return Math.round(value);
 }
 
-function normalizePlanId(value: string | null | undefined) {
+function normalizePlanId(value: string | null | undefined): CheckoutPlanId | null {
   return value === "light" || value === "core" || value === "intensive" ? value : null;
 }
 
-function normalizePaymentMethods(value: string[] | null | undefined) {
+function normalizePaymentMethods(
+  value: string[] | null | undefined,
+): CheckoutPaymentMethodType[] {
   const supportedMethods = new Set<CheckoutPaymentMethodType>(["ach", "card"]);
   const cleaned = (value ?? []).filter((entry): entry is CheckoutPaymentMethodType =>
     supportedMethods.has(entry as CheckoutPaymentMethodType),
@@ -45,7 +47,9 @@ function normalizePaymentMethods(value: string[] | null | undefined) {
   return cleaned.length ? cleaned : ["ach", "card"];
 }
 
-function normalizeAppliesToPlans(value: string[] | null | undefined) {
+function normalizeAppliesToPlans(
+  value: string[] | null | undefined,
+): CheckoutPlanId[] {
   const supportedPlans = new Set<CheckoutPlanId>(["light", "core", "intensive"]);
   return (value ?? []).filter((entry): entry is CheckoutPlanId =>
     supportedPlans.has(entry as CheckoutPlanId),
