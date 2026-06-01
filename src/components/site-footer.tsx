@@ -37,7 +37,7 @@ export function SiteFooter() {
                 Client Agreement
               </Link>
               <Link href="/terms" className="hover:text-primary">
-                Terms
+                Terms of Use
               </Link>
               <Link href="/privacy" className="hover:text-primary">
                 Privacy

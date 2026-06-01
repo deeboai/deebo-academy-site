@@ -82,7 +82,6 @@ export type AcademyPortalAccountRecord = {
   password_reset_sent_at: string | null;
   disabled_at: string | null;
   last_login_at: string | null;
-  force_reauth_after: string | null;
   created_at: string;
   updated_at: string;
 };

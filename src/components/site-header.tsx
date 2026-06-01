@@ -33,8 +33,8 @@ export function SiteHeader() {
                 Admin Login
               </Link>
               <ThemeToggle />
-              <Link href="/book" className="primary-button px-4 sm:px-6">
-                Start Intake
+              <Link href="/checkout" className="primary-button px-4 sm:px-6">
+                Enroll
               </Link>
             </div>
           </div>

@@ -367,7 +367,7 @@ export function BookForm() {
               <span className="text-sm text-muted-foreground">
                 I accept the{" "}
                 <Link href="/terms" className="text-primary hover:underline">
-                  Terms
+                  Terms of Use
                 </Link>
                 .
               </span>

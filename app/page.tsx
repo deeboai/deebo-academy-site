@@ -37,6 +37,7 @@ export default function HomePage() {
             alt={heroPoster.imageAlt}
             fill
             priority
+            sizes="100vw"
             className="object-cover opacity-25"
           />
           <video
@@ -84,12 +85,12 @@ export default function HomePage() {
               className="mt-8 flex flex-col items-center justify-center gap-4 animate-fade-in-up sm:flex-row"
               style={{ animationDelay: "280ms", animationFillMode: "both" }}
             >
-              <Link href="/book" className="primary-button">
-                Start Intake
+              <Link href="/checkout" className="primary-button">
+                Enroll
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              <Link href="/subjects" className="text-sm font-medium text-foreground/85 hover:text-primary">
-                View subjects
+              <Link href="/book" className="text-sm font-medium text-foreground/85 hover:text-primary">
+                Start intake first
               </Link>
             </div>
           </div>
@@ -204,15 +205,18 @@ export default function HomePage() {
         <div className="container">
           <Reveal className="site-panel mx-auto max-w-3xl px-8 py-10 text-center">
             <h2 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-              Start with intake and we&apos;ll review the course from there.
+              Approved families can enroll online once the plan is confirmed.
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
-              We start with intake, review the course details, and recommend the right support
-              plan from there.
+              Start with intake if you have not been approved yet. If Deebo Academy already sent
+              your enrollment access code, head straight to checkout.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Link href="/book" className="primary-button">
-                Start Intake
+              <Link href="/checkout" className="primary-button">
+                Go to checkout
+              </Link>
+              <Link href="/book" className="secondary-button">
+                Start intake
               </Link>
               {ACADEMY_TESTIMONIALS_ENABLED ? (
                 <Link
