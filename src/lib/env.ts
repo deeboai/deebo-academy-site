@@ -5,9 +5,11 @@ const resendApiKey = process.env.RESEND_API_KEY ?? "";
 const academyFromEmail = process.env.ACADEMY_FROM_EMAIL ?? "";
 const academyNotificationEmail = process.env.ACADEMY_NOTIFICATION_EMAIL ?? "";
 const publicAcademySiteUrl = process.env.NEXT_PUBLIC_ACADEMY_SITE_URL ?? "";
+const siteUrl = process.env.SITE_URL ?? publicAcademySiteUrl;
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY ?? "";
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? "";
 const publicStripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
+const cardPriceAdjustmentPercent = process.env.CARD_PRICE_ADJUSTMENT_PERCENT ?? "3";
 const googleClientId = process.env.GOOGLE_CLIENT_ID ?? "";
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET ?? "";
 const googleCalendarId = process.env.GOOGLE_CALENDAR_ID ?? "";
@@ -21,9 +23,11 @@ export const env = {
   academyFromEmail,
   academyNotificationEmail,
   publicAcademySiteUrl,
+  siteUrl,
   stripeSecretKey,
   stripeWebhookSecret,
   publicStripePublishableKey,
+  cardPriceAdjustmentPercent,
   googleClientId,
   googleClientSecret,
   googleCalendarId,
@@ -35,6 +39,9 @@ export const hasServiceRoleKey = Boolean(serviceRoleKey);
 export const hasAcademyEmailEnv = Boolean(resendApiKey && academyFromEmail);
 export const hasGoogleCalendarAutomationEnv = Boolean(
   googleClientId && googleClientSecret && googleCalendarId && googleRefreshToken,
+);
+export const hasCheckoutEnv = Boolean(
+  publicStripePublishableKey && stripeSecretKey && siteUrl,
 );
 
 export function assertPublicSupabaseEnv() {
@@ -57,6 +64,14 @@ export function assertServiceRoleKey() {
   if (!hasServiceRoleKey) {
     throw new Error(
       "Missing SUPABASE_SERVICE_ROLE_KEY. Set it before enabling signed testimonial video uploads.",
+    );
+  }
+}
+
+export function assertCheckoutEnv() {
+  if (!hasCheckoutEnv) {
+    throw new Error(
+      "Missing NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY, STRIPE_SECRET_KEY, or SITE_URL. Set them before enabling Academy checkout.",
     );
   }
 }

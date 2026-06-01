@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Workflow } from "lucide-react";
+import { TicketPercent, Workflow } from "lucide-react";
 
 import { signOutAcademyUserAction } from "@/actions/academy-admin-auth";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
@@ -12,6 +12,11 @@ const academyAdminNavigation = [
     href: "/admin/intake",
     label: "Intake",
     icon: Workflow,
+  },
+  {
+    href: "/admin/checkout",
+    label: "Checkout",
+    icon: TicketPercent,
   },
 ] as const;
 

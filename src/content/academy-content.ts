@@ -1,4 +1,4 @@
-export const ACADEMY_UPDATED_AT = "April 20, 2026";
+export const ACADEMY_UPDATED_AT = "May 31, 2026";
 
 // Keep this flag false while the testimonials page stays out of public view.
 export const ACADEMY_TESTIMONIALS_ENABLED = false;
@@ -7,14 +7,15 @@ export const ACADEMY_SITE_LINKS = [
   { href: "/", label: "Overview" },
   { href: "/subjects", label: "Subjects" },
   { href: "/pricing", label: "Pricing" },
+  { href: "/checkout", label: "Checkout" },
   { href: "/faq", label: "FAQ" },
   ...(ACADEMY_TESTIMONIALS_ENABLED
     ? ([{ href: "/testimonials", label: "Testimonials" }] as const)
     : []),
-  { href: "/book", label: "Book" },
+  { href: "/book", label: "Intake" },
 ] as const;
 
-export const ACADEMY_SUPPORT_EMAIL = "support@deeboai.com";
+export const ACADEMY_SUPPORT_EMAIL = "academy@deeboai.com";
 export const ACADEMY_CONSULTATION_URL =
   "https://calendar.google.com/calendar/appointments/schedules/AcZssZ2-QG9RFTSoUAau6Rh1u79xVafPpywL2B6ZxaQVrU3cx1uT6YUp3KZE18TRgSDb03jCCk0Xs32g?gv=true";
 export const ACADEMY_TESTIMONIAL_BUCKET = "academy-testimonials";

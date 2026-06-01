@@ -38,14 +38,17 @@ export function LegalPage({
               {children}
             </article>
             <div className="mt-10 flex flex-wrap gap-4 border-t border-border/80 pt-6 text-sm text-muted-foreground">
+              <Link href="/checkout" className="hover:text-primary">
+                Back to checkout
+              </Link>
               <Link href="/book" className="hover:text-primary">
-                Back to booking
+                Intake
               </Link>
               <Link href="/client-agreement" className="hover:text-primary">
                 Client Agreement
               </Link>
               <Link href="/terms" className="hover:text-primary">
-                Terms
+                Terms of Use
               </Link>
               <Link href="/privacy" className="hover:text-primary">
                 Privacy Policy

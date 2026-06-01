@@ -1,30 +1,43 @@
-export type StripeWebhookPaymentUpdate = {
+export type StripeCheckoutEnrollmentUpdate = {
   checkoutSessionId?: string | null;
-  paymentIntentId?: string | null;
-  invoiceId?: string | null;
+  stripeSubscriptionId?: string | null;
   stripeCustomerId?: string | null;
-  stripePaymentIntentId?: string | null;
   stripeInvoiceId?: string | null;
-  status: "paid" | "failed";
-};
-
-export function buildStripePaymentMatchClauses(input: {
-  checkoutSessionId?: string | null;
-  paymentIntentId?: string | null;
-  invoiceId?: string | null;
-}) {
-  return [
-    input.checkoutSessionId ? `stripe_checkout_session_id.eq.${input.checkoutSessionId}` : null,
-    input.paymentIntentId ? `stripe_payment_intent_id.eq.${input.paymentIntentId}` : null,
-    input.invoiceId ? `stripe_invoice_id.eq.${input.invoiceId}` : null,
-  ].filter((value): value is string => Boolean(value));
+  status:
+    | "pending"
+    | "checkout_completed"
+    | "active"
+    | "payment_failed"
+    | "past_due"
+    | "canceled"
+    | "expired";
+  markCheckoutCompleted?: boolean;
+  markSuccess?: boolean;
 }
 
-export function deriveStripeWebhookPaymentUpdate(input: {
+function mapStripeSubscriptionStatus(status: unknown): StripeCheckoutEnrollmentUpdate["status"] {
+  switch (status) {
+    case "active":
+      return "active";
+    case "past_due":
+      return "past_due";
+    case "canceled":
+    case "unpaid":
+      return "canceled";
+    case "incomplete":
+    case "incomplete_expired":
+      return "payment_failed";
+    case "trialing":
+      return "checkout_completed";
+    default:
+      return "pending";
+  }
+}
+
+export function deriveStripeCheckoutEnrollmentUpdate(input: {
   eventType: string;
   object: unknown;
-}): StripeWebhookPaymentUpdate | null {
-  // Stripe unions are broad, so narrow to a plain object before reading identifier fields.
+}): StripeCheckoutEnrollmentUpdate | null {
   const object =
     input.object && typeof input.object === "object" ? (input.object as Record<string, unknown>) : null;
 
@@ -33,43 +46,46 @@ export function deriveStripeWebhookPaymentUpdate(input: {
   }
 
   switch (input.eventType) {
-    case "checkout.session.completed":
+    case "checkout.session.completed": {
+      const paymentStatus = typeof object.payment_status === "string" ? object.payment_status : null;
+
       return {
         checkoutSessionId: typeof object.id === "string" ? object.id : null,
-        paymentIntentId: typeof object.payment_intent === "string" ? object.payment_intent : null,
+        stripeSubscriptionId: typeof object.subscription === "string" ? object.subscription : null,
         stripeCustomerId: typeof object.customer === "string" ? object.customer : null,
-        stripePaymentIntentId:
-          typeof object.payment_intent === "string" ? object.payment_intent : null,
         stripeInvoiceId: typeof object.invoice === "string" ? object.invoice : null,
-        status: "paid",
+        status: paymentStatus === "paid" ? "active" : "checkout_completed",
+        markCheckoutCompleted: true,
+        markSuccess: paymentStatus === "paid",
       };
-    case "payment_intent.succeeded":
-      return {
-        paymentIntentId: typeof object.id === "string" ? object.id : null,
-        stripeCustomerId: typeof object.customer === "string" ? object.customer : null,
-        stripePaymentIntentId: typeof object.id === "string" ? object.id : null,
-        status: "paid",
-      };
-    case "payment_intent.payment_failed":
-      return {
-        paymentIntentId: typeof object.id === "string" ? object.id : null,
-        stripeCustomerId: typeof object.customer === "string" ? object.customer : null,
-        stripePaymentIntentId: typeof object.id === "string" ? object.id : null,
-        status: "failed",
-      };
+    }
     case "invoice.paid":
       return {
-        invoiceId: typeof object.id === "string" ? object.id : null,
+        stripeSubscriptionId: typeof object.subscription === "string" ? object.subscription : null,
         stripeCustomerId: typeof object.customer === "string" ? object.customer : null,
         stripeInvoiceId: typeof object.id === "string" ? object.id : null,
-        status: "paid",
+        status: "active",
+        markSuccess: true,
       };
     case "invoice.payment_failed":
       return {
-        invoiceId: typeof object.id === "string" ? object.id : null,
+        stripeSubscriptionId: typeof object.subscription === "string" ? object.subscription : null,
         stripeCustomerId: typeof object.customer === "string" ? object.customer : null,
         stripeInvoiceId: typeof object.id === "string" ? object.id : null,
-        status: "failed",
+        status: "payment_failed",
+      };
+    case "customer.subscription.created":
+    case "customer.subscription.updated":
+      return {
+        stripeSubscriptionId: typeof object.id === "string" ? object.id : null,
+        stripeCustomerId: typeof object.customer === "string" ? object.customer : null,
+        status: mapStripeSubscriptionStatus(object.status),
+      };
+    case "customer.subscription.deleted":
+      return {
+        stripeSubscriptionId: typeof object.id === "string" ? object.id : null,
+        stripeCustomerId: typeof object.customer === "string" ? object.customer : null,
+        status: "canceled",
       };
     default:
       return null;
