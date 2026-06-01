@@ -145,70 +145,86 @@ export async function POST(request: Request) {
       },
     },
   };
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    ui_mode: "embedded_page",
-    return_url: `${env.siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-    redirect_on_completion: "always",
-    customer: stripeCustomer.id,
-    client_reference_id: `${pricing.planId}:${parentEmail}`,
-    payment_method_types:
-      pricing.paymentMethodType === "ach" ? ["us_bank_account"] : ["card"],
-    payment_method_options:
-      pricing.paymentMethodType === "ach"
-        ? {
-            us_bank_account: {
-              verification_method: "automatic",
-            },
-          }
-        : undefined,
-    billing_address_collection: "auto",
-    line_items: [lineItem],
-    metadata,
-    subscription_data: {
+  try {
+    const sessionParams = {
+      mode: "subscription",
+      // Stripe now requires embedded_page for hosted embedded Checkout on this pinned API version.
+      ui_mode: "embedded_page",
+      return_url: `${env.siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      redirect_on_completion: "always",
+      customer: stripeCustomer.id,
+      client_reference_id: `${pricing.planId}:${parentEmail}`,
+      payment_method_types:
+        pricing.paymentMethodType === "ach" ? ["us_bank_account"] : ["card"],
+      payment_method_options:
+        pricing.paymentMethodType === "ach"
+          ? {
+              us_bank_account: {
+                verification_method: "automatic",
+              },
+            }
+          : undefined,
+      billing_address_collection: "auto",
+      line_items: [lineItem],
       metadata,
-    },
-    customer_update: {
-      name: "auto",
-      address: "auto",
-    },
-    allow_promotion_codes: false,
-    // Session-level branding keeps Checkout aligned even if account defaults drift.
-    branding_settings: {
-      display_name: CHECKOUT_STRIPE_BRANDING.displayName,
-      background_color: CHECKOUT_STRIPE_BRANDING.backgroundColor,
-      button_color: CHECKOUT_STRIPE_BRANDING.buttonColor,
-      font_family: CHECKOUT_STRIPE_BRANDING.fontFamily,
-      border_style: CHECKOUT_STRIPE_BRANDING.borderStyle,
-      logo: {
-        type: "url",
-        url: new URL(CHECKOUT_STRIPE_BRANDING.logoUrl, env.siteUrl).toString(),
+      subscription_data: {
+        metadata,
       },
-    },
-  } as Stripe.Checkout.SessionCreateParams);
+      customer_update: {
+        name: "auto",
+        address: "auto",
+      },
+      allow_promotion_codes: false,
+      // Session-level colors keep Checkout aligned while the Stripe Dashboard controls logo, receipts, and invoices.
+      branding_settings: {
+        display_name: CHECKOUT_STRIPE_BRANDING.displayName,
+        background_color: CHECKOUT_STRIPE_BRANDING.backgroundColor,
+        button_color: CHECKOUT_STRIPE_BRANDING.buttonColor,
+        font_family: CHECKOUT_STRIPE_BRANDING.fontFamily,
+        border_style: CHECKOUT_STRIPE_BRANDING.borderStyle,
+      },
+    };
 
-  if (!session.client_secret) {
+    // Stripe's current SDK types lag the embedded Checkout fields used by this API version.
+    const session = await stripe.checkout.sessions.create(
+      sessionParams as unknown as Stripe.Checkout.SessionCreateParams,
+    );
+
+    if (!session.client_secret) {
+      return NextResponse.json(
+        {
+          error: "Stripe did not return an embedded checkout client secret.",
+        },
+        { status: 500 },
+      );
+    }
+
+    await createCheckoutEnrollmentDraft(pricing, {
+      parentName,
+      parentEmail,
+      studentName,
+      legalAcceptanceTimestamp,
+      stripeCheckoutSessionId: session.id,
+      stripeCustomerId: stripeCustomer.id,
+      promoCodeId: pricing.promoApplied?.id ?? null,
+    });
+
+    return NextResponse.json({
+      client_secret: session.client_secret,
+      session_id: session.id,
+      publishable_key: env.publicStripePublishableKey,
+    });
+  } catch (error) {
+    console.error("Failed to create Stripe checkout session", error);
+
     return NextResponse.json(
       {
-        error: "Stripe did not return an embedded checkout client secret.",
+        error:
+          process.env.NODE_ENV === "development" && error instanceof Error
+            ? error.message
+            : "Secure payment could not be started right now.",
       },
       { status: 500 },
     );
   }
-
-  await createCheckoutEnrollmentDraft(pricing, {
-    parentName,
-    parentEmail,
-    studentName,
-    legalAcceptanceTimestamp,
-    stripeCheckoutSessionId: session.id,
-    stripeCustomerId: stripeCustomer.id,
-    promoCodeId: pricing.promoApplied?.id ?? null,
-  });
-
-  return NextResponse.json({
-    client_secret: session.client_secret,
-    session_id: session.id,
-    publishable_key: env.publicStripePublishableKey,
-  });
 }

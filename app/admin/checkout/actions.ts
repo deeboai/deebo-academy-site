@@ -21,7 +21,7 @@ type AdminCheckoutActionResult = {
 };
 
 function parseOptionalInteger(value: number | null | undefined) {
-  if (value === null || value === undefined || value === Number.NaN) {
+  if (value === null || value === undefined) {
     return null;
   }
 
@@ -39,9 +39,8 @@ function normalizePlanId(value: string | null | undefined): CheckoutPlanId | nul
 function normalizePaymentMethods(
   value: string[] | null | undefined,
 ): CheckoutPaymentMethodType[] {
-  const supportedMethods = new Set<CheckoutPaymentMethodType>(["ach", "card"]);
-  const cleaned = (value ?? []).filter((entry): entry is CheckoutPaymentMethodType =>
-    supportedMethods.has(entry as CheckoutPaymentMethodType),
+  const cleaned = (value ?? []).filter(
+    (entry): entry is CheckoutPaymentMethodType => entry === "ach" || entry === "card",
   );
 
   return cleaned.length ? cleaned : ["ach", "card"];
@@ -50,9 +49,9 @@ function normalizePaymentMethods(
 function normalizeAppliesToPlans(
   value: string[] | null | undefined,
 ): CheckoutPlanId[] {
-  const supportedPlans = new Set<CheckoutPlanId>(["light", "core", "intensive"]);
-  return (value ?? []).filter((entry): entry is CheckoutPlanId =>
-    supportedPlans.has(entry as CheckoutPlanId),
+  return (value ?? []).filter(
+    (entry): entry is CheckoutPlanId =>
+      entry === "light" || entry === "core" || entry === "intensive",
   );
 }
 

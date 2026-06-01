@@ -1,159 +1,106 @@
-create or replace function public.set_updated_at()
-returns trigger
-language plpgsql
-as $$
-begin
-  new.updated_at = timezone('utc', now());
-  return new;
-end;
-$$;
+create table if not exists public.checkout_plans (
+  id text primary key,
+  name text not null,
+  monthly_price_cents integer not null check (monthly_price_cents >= 0),
+  description text not null,
+  included_features text[] not null default '{}'::text[],
+  sort_order integer not null default 100,
+  badge text,
+  active boolean not null default true,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  constraint checkout_plans_id_check check (id in ('light', 'support', 'intensive'))
+);
 
-do $$
-begin
-  if to_regclass('public.checkout_plans') is null then
-    execute $sql$
-      create table public.checkout_plans (
-        id text primary key,
-        name text not null,
-        monthly_price_cents integer not null check (monthly_price_cents >= 0),
-        description text not null,
-        included_features text[] not null default '{}'::text[],
-        sort_order integer not null default 100,
-        badge text,
-        active boolean not null default true,
-        created_at timestamptz not null default timezone('utc', now()),
-        updated_at timestamptz not null default timezone('utc', now()),
-        check (id in ('light', 'support', 'intensive'))
-      )
-    $sql$;
-  end if;
-end;
-$$;
+create table if not exists public.checkout_access_codes (
+  id uuid primary key default gen_random_uuid(),
+  code_hash text not null unique,
+  label text,
+  active boolean not null default true,
+  starts_at timestamptz,
+  expires_at timestamptz,
+  max_uses integer check (max_uses is null or max_uses >= 0),
+  use_count integer not null default 0 check (use_count >= 0),
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  constraint checkout_access_codes_window_check check (
+    expires_at is null
+    or starts_at is null
+    or expires_at >= starts_at
+  ),
+  constraint checkout_access_codes_use_count_check check (
+    max_uses is null
+    or use_count <= max_uses
+  )
+);
 
-do $$
-begin
-  if to_regclass('public.checkout_access_codes') is null then
-    execute $sql$
-      create table public.checkout_access_codes (
-        id uuid primary key default gen_random_uuid(),
-        code_hash text not null unique,
-        label text,
-        active boolean not null default true,
-        starts_at timestamptz,
-        expires_at timestamptz,
-        max_uses integer check (max_uses is null or max_uses >= 0),
-        use_count integer not null default 0 check (use_count >= 0),
-        created_at timestamptz not null default timezone('utc', now()),
-        updated_at timestamptz not null default timezone('utc', now()),
-        check (
-          expires_at is null
-          or starts_at is null
-          or expires_at >= starts_at
-        ),
-        check (
-          max_uses is null
-          or use_count <= max_uses
-        )
-      )
-    $sql$;
-  end if;
-end;
-$$;
-
-do $$
-begin
-  if to_regclass('public.checkout_promo_codes') is null then
-    execute $sql$
-      create table public.checkout_promo_codes (
-        id uuid primary key default gen_random_uuid(),
-        code text not null,
-        normalized_code text generated always as (lower(btrim(code))) stored,
-        discount_type text not null check (discount_type in ('percentage', 'fixed_amount')),
-        percentage_off numeric(6, 2),
-        amount_off_cents integer,
-        active boolean not null default true,
-        starts_at timestamptz,
-        expires_at timestamptz,
-        max_redemptions integer check (max_redemptions is null or max_redemptions >= 0),
-        redemption_count integer not null default 0 check (redemption_count >= 0),
-        applies_to_plans text[],
-        created_at timestamptz not null default timezone('utc', now()),
-        updated_at timestamptz not null default timezone('utc', now()),
-        check (
-          expires_at is null
-          or starts_at is null
-          or expires_at >= starts_at
-        ),
-        check (
-          (
-            discount_type = 'percentage'
-            and percentage_off is not null
-            and percentage_off >= 0
-            and percentage_off <= 100
-            and amount_off_cents is null
-          )
-          or (
-            discount_type = 'fixed_amount'
-            and amount_off_cents is not null
-            and amount_off_cents >= 0
-            and percentage_off is null
-          )
-        ),
-        check (
-          max_redemptions is null
-          or redemption_count <= max_redemptions
-        )
-      )
-    $sql$;
-  end if;
-end;
-$$;
+create table if not exists public.checkout_promo_codes (
+  id uuid primary key default gen_random_uuid(),
+  code text not null,
+  normalized_code text generated always as (lower(btrim(code))) stored,
+  discount_type text not null check (discount_type in ('percentage', 'fixed_amount')),
+  percentage_off numeric(6, 2),
+  amount_off_cents integer,
+  active boolean not null default true,
+  starts_at timestamptz,
+  expires_at timestamptz,
+  max_redemptions integer check (max_redemptions is null or max_redemptions >= 0),
+  redemption_count integer not null default 0 check (redemption_count >= 0),
+  applies_to_plans text[],
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  constraint checkout_promo_codes_window_check check (
+    expires_at is null
+    or starts_at is null
+    or expires_at >= starts_at
+  ),
+  constraint checkout_promo_codes_discount_shape_check check (
+    (discount_type = 'percentage' and percentage_off is not null and percentage_off >= 0 and percentage_off <= 100 and amount_off_cents is null)
+    or (discount_type = 'fixed_amount' and amount_off_cents is not null and amount_off_cents >= 0 and percentage_off is null)
+  ),
+  constraint checkout_promo_codes_redemption_count_check check (
+    max_redemptions is null
+    or redemption_count <= max_redemptions
+  )
+);
 
 create unique index if not exists checkout_promo_codes_normalized_code_key
 on public.checkout_promo_codes (normalized_code);
 
-do $$
-begin
-  if to_regclass('public.checkout_enrollments') is null then
-    execute $sql$
-      create table public.checkout_enrollments (
-        id uuid primary key default gen_random_uuid(),
-        parent_name text not null,
-        parent_email text not null,
-        student_name text,
-        plan_id text not null,
-        plan_name text not null,
-        payment_method_type text not null check (payment_method_type in ('ach', 'card')),
-        base_price_cents integer not null check (base_price_cents >= 0),
-        discount_cents integer not null default 0 check (discount_cents >= 0),
-        card_adjustment_cents integer not null default 0 check (card_adjustment_cents >= 0),
-        final_total_cents integer not null check (final_total_cents >= 0),
-        promo_code text,
-        promo_code_id uuid references public.checkout_promo_codes(id) on delete set null,
-        access_code_id uuid not null references public.checkout_access_codes(id) on delete restrict,
-        access_code_label text,
-        stripe_customer_id text,
-        stripe_checkout_session_id text not null,
-        stripe_subscription_id text,
-        stripe_invoice_id text,
-        status text not null default 'pending' check (
-          status in ('pending', 'checkout_completed', 'active', 'payment_failed', 'past_due', 'canceled', 'expired')
-        ),
-        legal_acceptance_timestamp timestamptz not null,
-        client_agreement_version text not null,
-        terms_version text not null,
-        privacy_policy_version text not null,
-        checkout_completed_at timestamptz,
-        payment_confirmed_at timestamptz,
-        success_accounted_at timestamptz,
-        created_at timestamptz not null default timezone('utc', now()),
-        updated_at timestamptz not null default timezone('utc', now()),
-        check (plan_id in ('light', 'support', 'intensive'))
-      )
-    $sql$;
-  end if;
-end;
-$$;
+create table if not exists public.checkout_enrollments (
+  id uuid primary key default gen_random_uuid(),
+  parent_name text not null,
+  parent_email text not null,
+  student_name text,
+  plan_id text not null,
+  plan_name text not null,
+  payment_method_type text not null check (payment_method_type in ('ach', 'card')),
+  base_price_cents integer not null check (base_price_cents >= 0),
+  discount_cents integer not null default 0 check (discount_cents >= 0),
+  card_adjustment_cents integer not null default 0 check (card_adjustment_cents >= 0),
+  final_total_cents integer not null check (final_total_cents >= 0),
+  promo_code text,
+  promo_code_id uuid references public.checkout_promo_codes(id) on delete set null,
+  access_code_id uuid not null references public.checkout_access_codes(id) on delete restrict,
+  access_code_label text,
+  stripe_customer_id text,
+  stripe_checkout_session_id text not null,
+  stripe_subscription_id text,
+  stripe_invoice_id text,
+  status text not null default 'pending' check (
+    status in ('pending', 'checkout_completed', 'active', 'payment_failed', 'past_due', 'canceled', 'expired')
+  ),
+  legal_acceptance_timestamp timestamptz not null,
+  client_agreement_version text not null,
+  terms_version text not null,
+  privacy_policy_version text not null,
+  checkout_completed_at timestamptz,
+  payment_confirmed_at timestamptz,
+  success_accounted_at timestamptz,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  constraint checkout_enrollments_plan_id_check check (plan_id in ('light', 'support', 'intensive'))
+);
 
 create unique index if not exists checkout_enrollments_stripe_checkout_session_id_key
 on public.checkout_enrollments (stripe_checkout_session_id);
@@ -197,13 +144,6 @@ alter table public.checkout_plans enable row level security;
 alter table public.checkout_access_codes enable row level security;
 alter table public.checkout_promo_codes enable row level security;
 alter table public.checkout_enrollments enable row level security;
-
-drop policy if exists "Public can read active checkout plans" on public.checkout_plans;
-create policy "Public can read active checkout plans"
-on public.checkout_plans
-for select
-to anon, authenticated
-using (active);
 
 create or replace function public.apply_checkout_enrollment_event(
   target_checkout_session_id text default null,
@@ -376,6 +316,3 @@ set
   amount_off_cents = excluded.amount_off_cents,
   active = excluded.active,
   applies_to_plans = excluded.applies_to_plans;
-
--- Keep live access codes out of the tracked migration history.
--- Insert hashed enrollment codes separately per environment.

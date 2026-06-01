@@ -149,6 +149,22 @@
     @apply w-full rounded-2xl border border-border bg-background/80 px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20;
   }
 
+  .status-success {
+    @apply border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200;
+  }
+
+  .status-warning {
+    @apply border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-200;
+  }
+
+  .status-danger {
+    @apply border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-200;
+  }
+
+  .status-neutral {
+    @apply border-border/70 bg-background/70 text-muted-foreground;
+  }
+
   /* Reuse the main-site motion utilities so Academy keeps the same feel on entry and hover. */
   .animate-fade-in-up {
     animation: fade-in-up 0.6s ease-out;

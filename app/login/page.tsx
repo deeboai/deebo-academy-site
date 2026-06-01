@@ -14,6 +14,9 @@ import {
 import { hasPublicSupabaseEnv } from "@/lib/env";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 
+// The login page depends on request cookies and live auth state, so it must render per request.
+export const dynamic = "force-dynamic";
+
 type LoginPageProps = {
   searchParams?: Promise<{
     error?: string;

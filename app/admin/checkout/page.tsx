@@ -31,7 +31,7 @@ export default async function AcademyAdminCheckoutPage() {
   return (
     <AdminShell
       title="Checkout operations"
-      subtitle="Manage monthly plans, enrollment access codes, and promo codes for the Deebo Academy approval-only checkout flow."
+      subtitle="Manage monthly plans, enrollment access codes, legacy system codes, and promo codes for Deebo Academy."
       userEmail={user.email ?? "Signed-in admin"}
     >
       <CheckoutOpsDashboard
